@@ -996,6 +996,7 @@
   document.getElementById("wLogBtn").addEventListener("click", function () { show("p4"); storeLoad().then(function () { renderWFreq(); renderWLogs(); }); });
 
 
+  try { console.log("VP:" + window.innerWidth + "x" + window.innerHeight + ":dpr" + (window.devicePixelRatio || 1)); } catch (e) {}
   tick();
   setInterval(tick, 1000);
   load();
