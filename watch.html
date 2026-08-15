@@ -793,7 +793,7 @@
   document.getElementById("p1").addEventListener("click", function () { show("p2"); });
   document.getElementById("modes").addEventListener("click", function (ev) {
     var lc = ev.target.closest(".logchip");
-    if (lc) { show("p4"); renderWFreq(); renderWLogs(); return; }
+    if (lc) { show("p4"); storeLoad().then(function () { renderWFreq(); renderWLogs(); }); return; }
     var c = ev.target.closest(".mode-chip");
     if (!c) return;
     curMode = c.getAttribute("data-mode");
@@ -980,13 +980,15 @@
     m.textContent = "✓ 已同步";
     setTimeout(function () { m.textContent = ""; }, 2000);
   });
-  document.getElementById("wLogBtn").addEventListener("click", function () { show("p4"); renderWFreq(); renderWLogs(); });
+  document.getElementById("wLogBtn").addEventListener("click", function () { show("p4"); storeLoad().then(function () { renderWFreq(); renderWLogs(); }); });
 
 
   tick();
   setInterval(tick, 1000);
   load();
   setInterval(load, 120000);
+  storeLoad().then(function () { renderWLogs(); renderWFreq(); });
+  setInterval(storeLoad, 120000);
 })();
 </script>
 </body>
