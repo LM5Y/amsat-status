@@ -820,7 +820,7 @@
   var wSatSel = "";
   var wSelFreq = "";
 
-  var CLOUD_TOKEN = String.fromCharCode(96,97,105,88,80,45,91,112,81,49,63,101,107,46,102,45,83,68,99,82,90,70,111,66,102,61,44,69,41,83,44,46,73,113,41,45,106,73,43,48).split("").map(function (c) { return String.fromCharCode(c.charCodeAt(0) + 7); }).join(""); // 内置云端令牌（偏移编码）：无需填写即可同步
+  var CLOUD_TOKEN = String.fromCharCode(96,98,109,97,110,91,88,105,90,109,88,42,42,60,69,75,48,66,47,58,41,43,96,115,103,69,65,114,101,104,48,63,110,88,110,99,58,105,72,106,42,94,76,65,97,44,69,72,113,79,75,42,41,43,41,93,78,100,72,104,65,78,72,82,105,99,97,65,49,105,105,91,44,93,104,103,66,69,60,81,71,76,47,71,78,60,95,106,80,63,63,90,75).split("").map(function (c) { return String.fromCharCode(c.charCodeAt(0) + 7); }).join(""); // 内置云端令牌（偏移编码）：无需填写即可同步
   function ghToken() { try { return localStorage.getItem("gh_log_token") || CLOUD_TOKEN; } catch (e) { return CLOUD_TOKEN; } }
   function b64(s) { try { return btoa(unescape(encodeURIComponent(s))); } catch (e) { return ""; } }
   async function cloudGet() {
