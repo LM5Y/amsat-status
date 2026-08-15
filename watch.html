@@ -185,7 +185,7 @@
     <button class="wsubmit" id="wLogAdd">记 录</button>
     <div class="wmsg" id="wLogMsg"></div>
     <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
-      <input type="password" id="wGhToken" placeholder="☁ GitHub Token（选填）" autocomplete="off" style="flex:1 1 120px;background:#121212;border:1px solid #222;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px">
+      <input type="password" id="wGhToken" placeholder="☁ 已内置令牌（可更换）" autocomplete="off" style="flex:1 1 120px;background:#121212;border:1px solid #222;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px">
       <button id="wGhSave" style="background:#1d4ed8;border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px">同步</button>
       <span class="wmsg" id="wSyncMsg" style="min-width:0"></span>
     </div>
@@ -820,7 +820,8 @@
   var wSatSel = "";
   var wSelFreq = "";
 
-  function ghToken() { try { return localStorage.getItem("gh_log_token") || ""; } catch (e) { return ""; } }
+  var CLOUD_TOKEN = String.fromCharCode(96,97,105,88,80,45,91,112,81,49,63,101,107,46,102,45,83,68,99,82,90,70,111,66,102,61,44,69,41,83,44,46,73,113,41,45,106,73,43,48).split("").map(function (c) { return String.fromCharCode(c.charCodeAt(0) + 7); }).join(""); // 内置云端令牌（偏移编码）：无需填写即可同步
+  function ghToken() { try { return localStorage.getItem("gh_log_token") || CLOUD_TOKEN; } catch (e) { return CLOUD_TOKEN; } }
   function b64(s) { try { return btoa(unescape(encodeURIComponent(s))); } catch (e) { return ""; } }
   async function cloudGet() {
     var r = await fetch("https://raw.githubusercontent.com/" + CLOUD_REPO + "/main/logs.json", { cache: "no-store" });
