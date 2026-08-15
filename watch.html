@@ -685,6 +685,18 @@
     var ps = document.querySelectorAll(".page");
     for (var i = 0; i < ps.length; i++) ps[i].classList.add("hide");
     document.getElementById(id).classList.remove("hide");
+    try {
+      setTimeout(function () {
+        var pg = document.getElementById(id);
+        var h = document.documentElement.clientHeight;
+        var kids = pg.children, lb = -1, desc = "";
+        for (var k = 0; k < kids.length; k++) {
+          var r = kids[k].getBoundingClientRect();
+          if (r.bottom > lb) { lb = Math.round(r.bottom); desc = kids[k].className || kids[k].id; }
+        }
+        console.log("DBG:" + id + " vh=" + h + " maxBottom=" + lb + " (" + desc + ")");
+      }, 400);
+    } catch (e) {}
   }
 
   function setRing(id, glowId, pct) {
