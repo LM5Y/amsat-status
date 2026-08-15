@@ -1,1 +1,1 @@
-{"logs": [], "freqs": []}
+{"logs": [{"id": "FTEST2", "callsign": "BA4SCO", "mode": "FM卫星", "satellite": "SO-50 [FM]", "frequency": "436.795 MHz", "timeText": "2026-08-15 21:00 UTC", "src": "端到端验证"}], "freqs": []}
