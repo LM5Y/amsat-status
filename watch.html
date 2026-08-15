@@ -978,8 +978,7 @@
     m.textContent = "✓ 已同步";
     setTimeout(function () { m.textContent = ""; }, 2000);
   });
-  document.getElementById("wLogBtn").addEventListener("click", function () { show("p4"); storeLoad().then(function () { renderWFreq(); renderWLogs(); }); });
-
+  
 
   try { console.log("VP:" + window.innerWidth + "x" + window.innerHeight + ":dpr" + (window.devicePixelRatio || 1)); } catch (e) {}
   tick();
