@@ -216,6 +216,30 @@
   .spinner { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; margin: 36px auto; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ---------- 通联日志 ---------- */
+  .logcard { padding: 16px 18px; margin-top: 14px; }
+  .log-head { font-weight: 700; font-size: 1.02rem; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+  .log-head .w-src { font-size: .76rem; color: var(--muted); font-weight: 400; }
+  .log-form { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+  .log-form input[type=text], .log-form select, .log-form input[type=datetime-local] {
+    background: #fff; border: 1px solid var(--line); color: var(--text); border-radius: 9px; padding: 9px 12px; font-size: .88rem;
+  }
+  .log-form input:focus, .log-form select:focus { outline: none; border-color: var(--accent); }
+  #logCall { flex: 1 1 160px; min-width: 120px; }
+  #logMode { max-width: 140px; }
+  #logFreqArea { flex: 1 1 240px; display: flex; gap: 8px; align-items: center; }
+  #logFreqArea select, #logFreqArea input { flex: 1 1 100%; min-width: 120px; }
+  .log-time { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: .84rem; color: var(--muted); width: 100%; }
+  .log-time input[type=datetime-local] { margin-left: 4px; }
+  .log-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; }
+  .log-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--card-hover); border: 1px solid var(--line-soft); border-radius: 9px; font-size: .84rem; }
+  .log-row .c { font-weight: 700; color: var(--text); }
+  .log-row .m { color: var(--accent); }
+  .log-row .f { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .log-row .t { color: var(--gray); margin-left: auto; font-size: .76rem; white-space: nowrap; }
+  .log-row .del { border: none; background: transparent; color: var(--red); cursor: pointer; font-size: 1rem; padding: 2px 6px; }
+  .log-empty { text-align: center; color: var(--gray); font-size: .8rem; padding: 14px; }
+
   @media (max-width: 620px) {
     .row-head { flex-wrap: wrap; gap: 9px; }
     .time { text-align: left; flex: 1 1 auto; }
@@ -317,6 +341,27 @@
   </div>
 
   <div id="list" class="list"><div class="spinner"></div></div>
+
+  <section class="card logcard">
+    <div class="log-head">📒 通联日志 <span class="w-src">数据存于本机数据库 · 主站与手表共享</span></div>
+    <div class="log-form">
+      <input type="text" id="logCall" placeholder="对方呼号，如 BA4SCO" autocomplete="off">
+      <select id="logMode">
+        <option value="FM卫星">FM卫星</option>
+        <option value="本地FM">本地FM</option>
+        <option value="FT8">FT8</option>
+      </select>
+      <div id="logFreqArea"></div>
+      <div class="log-time">
+        <label class="chk"><input type="radio" name="logTime" value="utc" checked>当前UTC时间</label>
+        <label class="chk"><input type="radio" name="logTime" value="bj">当前北京时间</label>
+        <label class="chk"><input type="radio" name="logTime" value="manual">自填</label>
+        <input type="datetime-local" id="logTimeManual" style="display:none">
+      </div>
+      <button class="refresh" id="logAdd">＋ 记录</button>
+    </div>
+    <div class="log-list" id="logList"></div>
+  </section>
 
   <p class="footnote">
     状态依据 AMSAT 报告体系：<b>Heard</b> 可通联 · <b>Crew Active</b> ISS 机组语音活跃 · <b>Telemetry Only</b> 仅信标/遥测 · <b>Not Heard</b> 无信号 ·
@@ -1022,6 +1067,8 @@
       populateModeFilter();
       renderStats();
       applyFilters();
+      buildFmSats();
+      renderLogs();
       el.banner.classList.remove("show");
       el.banner.innerHTML = "";
       setLive(true, "已更新 · " + new Date().toLocaleTimeString("zh-CN", { hour12: false }));
@@ -1281,6 +1328,121 @@
   function tickClock() {
     el.utcClock.textContent = new Date().toISOString().slice(11, 19) + " UTC";
   }
+
+  /* ============ 通联日志 ============ */
+  var FM_SATS = [];
+  function buildFmSats() {
+    FM_SATS = rows.filter(function (r) { return r.mode === "FM"; });
+    var area = document.getElementById("logFreqArea");
+    if (area.innerHTML === "") renderFreqArea();
+  }
+  function renderFreqArea() {
+    var mode = document.getElementById("logMode").value;
+    var area = document.getElementById("logFreqArea");
+    if (mode === "FM卫星") {
+      area.innerHTML = '<select id="logFreqSat">' + FM_SATS.map(function (r) {
+        var d = SAT_DETAILS[r.name];
+        return '<option value="' + esc(r.displayName) + '">' + esc(r.displayName) + (d && d.downlink ? " · " + esc(d.downlink) : "") + "</option>";
+      }).join("") + "</select>";
+    } else {
+      area.innerHTML = '<input type="text" id="logFreqTxt" placeholder="频率 (MHz)，如 145.500" autocomplete="off">';
+    }
+  }
+  function logTimeVal() {
+    var checked = document.querySelector('input[name="logTime"]:checked');
+    var v = checked ? checked.value : "utc";
+    var d = new Date();
+    if (v === "utc") return { time: d.toISOString(), text: d.toISOString().replace("T", " ").slice(0, 19) + " UTC" };
+    if (v === "bj") {
+      var bj = new Date(d.getTime() + 8 * 3600000);
+      return { time: d.toISOString(), text: bj.toISOString().replace("T", " ").slice(0, 19) + " 北京时间" };
+    }
+    var mv = document.getElementById("logTimeManual").value;
+    if (!mv) return { time: d.toISOString(), text: "（未填时间）" };
+    var dt = new Date(mv);
+    return { time: isNaN(dt.getTime()) ? "" : dt.toISOString(), text: mv.replace("T", " ") };
+  }
+  async function getLogs() {
+    var local = [];
+    try { local = JSON.parse(localStorage.getItem("amsat_logs") || "[]"); } catch (e) {}
+    try {
+      var r = await fetch("/api/logs", { cache: "no-store" });
+      if (r.ok) {
+        var serverLogs = await r.json();
+        var ids = {};
+        serverLogs.forEach(function (l) { ids[l.id] = 1; });
+        return serverLogs.concat(local.filter(function (l) { return l.local && !ids[l.id]; }));
+      }
+    } catch (e) {}
+    return local;
+  }
+  async function addLogEntry(entry) {
+    entry.id = entry.id || "L-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    try {
+      var r = await fetch("/api/logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry) });
+      if (r.ok) return await r.json();
+      throw new Error("server");
+    } catch (e) {
+      entry.local = true;
+      var local = JSON.parse(localStorage.getItem("amsat_logs") || "[]");
+      local.unshift(entry);
+      try { localStorage.setItem("amsat_logs", JSON.stringify(local)); } catch (e2) {}
+      return entry;
+    }
+  }
+  async function delLogEntry(id) {
+    try {
+      var r = await fetch("/api/logs/" + encodeURIComponent(id), { method: "DELETE" });
+      if (r.ok) return;
+    } catch (e) {}
+    var local = JSON.parse(localStorage.getItem("amsat_logs") || "[]");
+    try { localStorage.setItem("amsat_logs", JSON.stringify(local.filter(function (l) { return l.id !== id; }))); } catch (e2) {}
+  }
+  async function renderLogs() {
+    var logs = await getLogs();
+    var box = document.getElementById("logList");
+    if (!logs.length) { box.innerHTML = '<div class="log-empty">暂无记录 · 记录第一条通联吧</div>'; return; }
+    box.innerHTML = logs.map(function (l) {
+      var freq = l.satellite ? (l.satellite + (l.frequency ? " · " + l.frequency : "")) : (l.frequency || "");
+      return '<div class="log-row"><span class="c">' + esc(l.callsign || "—") + '</span>' +
+        '<span class="m">' + esc(l.mode || "") + '</span>' +
+        '<span class="f">' + esc(freq) + '</span>' +
+        '<span class="t">' + esc(l.timeText || l.time || "") + "</span>" +
+        '<button class="del" data-id="' + esc(l.id) + '" title="删除">✕</button></div>';
+    }).join("");
+  }
+  async function submitLog() {
+    var call = document.getElementById("logCall").value.trim();
+    if (!call) { document.getElementById("logCall").focus(); return; }
+    var mode = document.getElementById("logMode").value;
+    var satellite = "", frequency = "";
+    if (mode === "FM卫星") {
+      var s = document.getElementById("logFreqSat").value;
+      satellite = s;
+      var hit = FM_SATS.filter(function (r) { return r.displayName === s; })[0];
+      frequency = (hit && SAT_DETAILS[hit.name] && SAT_DETAILS[hit.name].downlink) || "";
+    } else {
+      var fv = document.getElementById("logFreqTxt").value.trim();
+      frequency = fv ? fv + " MHz" : "";
+    }
+    var tv = logTimeVal();
+    await addLogEntry({ callsign: call, mode: mode, satellite: satellite, frequency: frequency, time: tv.time, timeText: tv.text, src: "主站" });
+    document.getElementById("logCall").value = "";
+    renderLogs();
+  }
+  document.getElementById("logMode").addEventListener("change", renderFreqArea);
+  document.getElementById("logAdd").addEventListener("click", submitLog);
+  var timeRadios = document.querySelectorAll('input[name="logTime"]');
+  for (var tr = 0; tr < timeRadios.length; tr++) {
+    timeRadios[tr].addEventListener("change", function () {
+      document.getElementById("logTimeManual").style.display = this.value === "manual" ? "inline-block" : "none";
+    });
+  }
+  document.getElementById("logList").addEventListener("click", function (ev) {
+    var d = ev.target.closest(".del");
+    if (!d) return;
+    delLogEntry(d.getAttribute("data-id")).then(renderLogs);
+  });
 
   /* ============ events ============ */
   el.search.addEventListener("input", applyFilters);
