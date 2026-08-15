@@ -1443,19 +1443,45 @@
     document.getElementById("logRemark").value = "";
     renderLogs();
   }
-  function csvCell(v) { v = String(v == null ? "" : v).replace(/"/g, '""'); return '"' + v + '"'; }
+  function xmlEsc(v) {
+    return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
   async function exportLogs() {
     var logs = await getLogs();
     if (!logs.length) { return; }
+    // XML Spreadsheet 2003：WPS / Excel 可直接打开显示
     var head = ["呼号", "方式", "卫星", "频率", "时间", "备注", "来源", "记录时间"];
-    var lines = logs.map(function (l) {
-      return [l.callsign || "", l.mode || "", l.satellite || "", l.frequency || "", l.timeText || "", l.remark || "", l.src || "", (l.created || "").replace("T", " ").slice(0, 19)].map(csvCell).join(",");
+    function cell(v) { return "<Cell><Data ss:Type=\"String\">" + xmlEsc(v) + "</Data></Cell>"; }
+    var rows = ["<Row>" + head.map(function (h) { return cell(h); }).join("") + "</Row>"];
+    logs.forEach(function (l) {
+      rows.push("<Row>" +
+        cell(l.callsign || "") + cell(l.mode || "") + cell(l.satellite || "") +
+        cell(l.frequency || "") + cell(l.timeText || "") + cell(l.remark || "") +
+        cell(l.src || "") + cell((l.created || "").replace("T", " ").slice(0, 19)) +
+        "</Row>");
     });
-    var csv = "\uFEFF" + head.map(csvCell).join(",") + "\n" + lines.join("\n");
-    var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    var xml =
+      '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<?mso-application progid="Excel.Sheet"?>\n' +
+      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" ' +
+      'xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+      'xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
+      'xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n' +
+      ' <Styles>\n' +
+      '  <Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2563EB" ss:Pattern="Solid"/></Style>\n' +
+      ' </Styles>\n' +
+      ' <Worksheet ss:Name="通联日志">\n' +
+      '  <Table>\n' +
+      '   <Column ss:Width="80"/><Column ss:Width="70"/><Column ss:Width="130"/><Column ss:Width="110"/><Column ss:Width="150"/><Column ss:Width="180"/><Column ss:Width="50"/><Column ss:Width="120"/>\n' +
+      '   <Row ss:StyleID="hdr">' + head.map(function (h) { return cell(h); }).join("") + "</Row>\n" +
+      rows.slice(1).map(function (r) { return "   " + r + "\n"; }).join("") +
+      "  </Table>\n" +
+      " </Worksheet>\n" +
+      "</Workbook>";
+    var blob = new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "通联日志_" + new Date().toISOString().slice(0, 10) + ".csv";
+    a.download = "通联日志_" + new Date().toISOString().slice(0, 10) + ".xls";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
