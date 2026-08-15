@@ -218,6 +218,11 @@
 
   /* ---------- 通联日志 ---------- */
   .logcard { padding: 16px 18px; margin-top: 14px; }
+  .log-sync { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; font-size: .8rem; }
+  .log-sync .ls-lbl { color: var(--muted); white-space: nowrap; }
+  .log-sync input { flex: 1 1 240px; min-width: 160px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: .84rem; }
+  .log-sync input:focus { outline: none; border-color: var(--accent); }
+  .log-sync .ls-msg { color: var(--green); font-size: .76rem; }
   .log-head { font-weight: 700; font-size: 1.02rem; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
   .log-head .w-src { font-size: .76rem; color: var(--muted); font-weight: 400; }
   .log-form { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
@@ -348,7 +353,13 @@
   <div id="list" class="list"><div class="spinner"></div></div>
 
   <section class="card logcard">
-    <div class="log-head">📒 通联日志 <span class="w-src">数据存于本机数据库 · 主站与手表共享</span></div>
+    <div class="log-head">📒 通联日志 <span class="w-src">多设备共享 · 云端同步</span></div>
+    <div class="log-sync">
+      <span class="ls-lbl">☁ 云端同步</span>
+      <input type="password" id="ghToken" placeholder="GitHub Token（选填，填后多设备跨网共享）" autocomplete="off">
+      <button class="wbtn" id="ghTokenSave">保存并同步</button>
+      <span class="ls-msg" id="ghSyncMsg"></span>
+    </div>
     <div class="log-form">
       <input type="text" id="logCall" placeholder="对方呼号，如 BA4SCO" autocomplete="off">
       <select id="logMode">
@@ -1077,7 +1088,7 @@
       renderStats();
       applyFilters();
       buildFmSats();
-      renderLogs();
+      storeLoad().then(function () { renderLogs(); renderFreqArea(); });
       el.banner.classList.remove("show");
       el.banner.innerHTML = "";
       setLive(true, "已更新 · " + new Date().toLocaleTimeString("zh-CN", { hour12: false }));
@@ -1339,7 +1350,54 @@
   }
 
   /* ============ 通联日志 ============ */
+  var PRESETS = {
+    "本地FM": ["145.500", "145.550", "145.600", "145.800", "146.100", "147.500", "430.500", "438.500", "439.500"],
+    "FT8": ["3.573", "7.074", "10.136", "14.074", "18.100", "21.074", "24.915", "28.074", "50.313", "144.174", "432.174"]
+  };
+  var STORE = { logs: [], freqs: [] };
   var FM_SATS = [];
+  var CLOUD_REPO = "LM5Y/amsat-status";
+
+  function ghToken() { try { return localStorage.getItem("gh_log_token") || ""; } catch (e) { return ""; } }
+  function b64(s) { try { return btoa(unescape(encodeURIComponent(s))); } catch (e) { return ""; } }
+  async function cloudGet() {
+    var r = await fetch("https://raw.githubusercontent.com/" + CLOUD_REPO + "/main/logs.json", { cache: "no-store" });
+    if (!r.ok) return null;
+    return r.json();
+  }
+  async function cloudPut() {
+    var t = ghToken();
+    if (!t) return false;
+    try {
+      var g = await fetch("https://api.github.com/repos/" + CLOUD_REPO + "/contents/logs.json", { headers: { Authorization: "token " + t } });
+      var meta = g.ok ? await g.json() : null;
+      var body = { message: "update logs", content: b64(JSON.stringify(STORE)) };
+      if (meta && meta.sha) body.sha = meta.sha;
+      var p = await fetch("https://api.github.com/repos/" + CLOUD_REPO + "/contents/logs.json", { method: "PUT", headers: { Authorization: "token " + t, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      return p.ok;
+    } catch (e) { return false; }
+  }
+  async function storeLoad() {
+    var cloud = null, server = null, localL = [], localF = [];
+    try { cloud = await cloudGet(); } catch (e) {}
+    try { server = await (await fetch("/api/store", { cache: "no-store" })).json(); } catch (e) {}
+    try { localL = JSON.parse(localStorage.getItem("amsat_logs") || "[]"); localF = JSON.parse(localStorage.getItem("amsat_freqs") || "[]"); } catch (e) {}
+    var seen = {}, logs = [];
+    [cloud && cloud.logs, server && server.logs, localL].forEach(function (arr) {
+      (arr || []).forEach(function (x) { if (x && x.id && !seen[x.id]) { seen[x.id] = 1; logs.push(x); } });
+    });
+    STORE.logs = logs.sort(function (a, b) { return (b.time || "").localeCompare(a.time || ""); });
+    var fseen = {}, freqs = [];
+    [cloud && cloud.freqs, server && server.freqs, localF].forEach(function (arr) {
+      (arr || []).forEach(function (f) { if (f && f.id && !fseen[f.id]) { fseen[f.id] = 1; freqs.push(f); } });
+    });
+    STORE.freqs = freqs;
+  }
+  async function storeSave() {
+    try { await cloudPut(); } catch (e) {}
+    try { await fetch("/api/store", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(STORE) }); } catch (e) {}
+    try { localStorage.setItem("amsat_logs", JSON.stringify(STORE.logs)); localStorage.setItem("amsat_freqs", JSON.stringify(STORE.freqs)); } catch (e) {}
+  }
   function buildFmSats() {
     FM_SATS = rows.filter(function (r) { return r.mode === "FM"; });
     var area = document.getElementById("logFreqArea");
@@ -1353,9 +1411,18 @@
         var d = SAT_DETAILS[r.name];
         return '<option value="' + esc(r.displayName) + '">' + esc(r.displayName) + (d && d.downlink ? " · " + esc(d.downlink) : "") + "</option>";
       }).join("") + "</select>";
-    } else {
-      area.innerHTML = '<input type="text" id="logFreqTxt" placeholder="频率 (MHz)，如 145.500" autocomplete="off">';
+      return;
     }
+    var opts = '<option value="">— 常用 —</option>';
+    (PRESETS[mode] || []).forEach(function (f) { opts += '<option value="' + f + '">' + f + " MHz</option>"; });
+    if (STORE.freqs.length) {
+      opts += '<optgroup label="我的标签">';
+      STORE.freqs.forEach(function (f) { opts += '<option value="' + esc(f.freq) + '">' + esc(f.name) + "（" + esc(f.freq) + " MHz）</option>"; });
+      opts += "</optgroup>";
+    }
+    area.innerHTML = '<select id="logFreqPreset">' + opts + "</select>" +
+      '<input type="text" id="logFreqTxt" placeholder="或手动输入频率 (MHz)" autocomplete="off">' +
+      '<button class="wbtn" id="logFreqNew">＋ 新建标签</button>';
   }
   function logTimeVal() {
     var checked = document.querySelector('input[name="logTime"]:checked');
@@ -1371,47 +1438,19 @@
     var dt = new Date(mv);
     return { time: isNaN(dt.getTime()) ? "" : dt.toISOString(), text: mv.replace("T", " ") };
   }
-  async function getLogs() {
-    var local = [];
-    try { local = JSON.parse(localStorage.getItem("amsat_logs") || "[]"); } catch (e) {}
-    try {
-      var r = await fetch("/api/logs", { cache: "no-store" });
-      if (r.ok) {
-        var serverLogs = await r.json();
-        var ids = {};
-        serverLogs.forEach(function (l) { ids[l.id] = 1; });
-        return serverLogs.concat(local.filter(function (l) { return l.local && !ids[l.id]; }));
-      }
-    } catch (e) {}
-    return local;
-  }
   async function addLogEntry(entry) {
     entry.id = entry.id || "L-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    try {
-      var r = await fetch("/api/logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry) });
-      if (r.ok) return await r.json();
-      throw new Error("server");
-    } catch (e) {
-      entry.local = true;
-      var local = JSON.parse(localStorage.getItem("amsat_logs") || "[]");
-      local.unshift(entry);
-      try { localStorage.setItem("amsat_logs", JSON.stringify(local)); } catch (e2) {}
-      return entry;
-    }
+    STORE.logs.unshift(entry);
+    await storeSave();
   }
   async function delLogEntry(id) {
-    try {
-      var r = await fetch("/api/logs/" + encodeURIComponent(id), { method: "DELETE" });
-      if (r.ok) return;
-    } catch (e) {}
-    var local = JSON.parse(localStorage.getItem("amsat_logs") || "[]");
-    try { localStorage.setItem("amsat_logs", JSON.stringify(local.filter(function (l) { return l.id !== id; }))); } catch (e2) {}
+    STORE.logs = STORE.logs.filter(function (l) { return l.id !== id; });
+    await storeSave();
   }
   async function renderLogs() {
-    var logs = await getLogs();
     var box = document.getElementById("logList");
-    if (!logs.length) { box.innerHTML = '<div class="log-empty">暂无记录 · 记录第一条通联吧</div>'; return; }
-    box.innerHTML = logs.map(function (l) {
+    if (!STORE.logs.length) { box.innerHTML = '<div class="log-empty">暂无记录 · 记录第一条通联吧</div>'; return; }
+    box.innerHTML = STORE.logs.map(function (l) {
       var freq = l.satellite ? (l.satellite + (l.frequency ? " · " + l.frequency : "")) : (l.frequency || "");
       var remark = l.remark ? '<span class="r">备注：' + esc(l.remark) + "</span>" : "";
       return '<div class="log-row"><span class="c">' + esc(l.callsign || "—") + '</span>' +
@@ -1447,37 +1486,24 @@
     return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   async function exportLogs() {
-    var logs = await getLogs();
+    var logs = STORE.logs;
     if (!logs.length) { return; }
-    // XML Spreadsheet 2003：WPS / Excel 可直接打开显示
     var head = ["呼号", "方式", "卫星", "频率", "时间", "备注", "来源", "记录时间"];
     function cell(v) { return "<Cell><Data ss:Type=\"String\">" + xmlEsc(v) + "</Data></Cell>"; }
     var rows = ["<Row>" + head.map(function (h) { return cell(h); }).join("") + "</Row>"];
     logs.forEach(function (l) {
-      rows.push("<Row>" +
-        cell(l.callsign || "") + cell(l.mode || "") + cell(l.satellite || "") +
-        cell(l.frequency || "") + cell(l.timeText || "") + cell(l.remark || "") +
-        cell(l.src || "") + cell((l.created || "").replace("T", " ").slice(0, 19)) +
-        "</Row>");
+      rows.push("<Row>" + cell(l.callsign || "") + cell(l.mode || "") + cell(l.satellite || "") + cell(l.frequency || "") + cell(l.timeText || "") + cell(l.remark || "") + cell(l.src || "") + cell((l.created || "").replace("T", " ").slice(0, 19)) + "</Row>");
     });
     var xml =
       '<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<?mso-application progid="Excel.Sheet"?>\n' +
-      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" ' +
-      'xmlns:o="urn:schemas-microsoft-com:office:office" ' +
-      'xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
-      'xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n' +
-      ' <Styles>\n' +
-      '  <Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2563EB" ss:Pattern="Solid"/></Style>\n' +
-      ' </Styles>\n' +
-      ' <Worksheet ss:Name="通联日志">\n' +
-      '  <Table>\n' +
+      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n' +
+      ' <Styles>\n  <Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2563EB" ss:Pattern="Solid"/></Style>\n </Styles>\n' +
+      ' <Worksheet ss:Name="通联日志">\n  <Table>\n' +
       '   <Column ss:Width="80"/><Column ss:Width="70"/><Column ss:Width="130"/><Column ss:Width="110"/><Column ss:Width="150"/><Column ss:Width="180"/><Column ss:Width="50"/><Column ss:Width="120"/>\n' +
       '   <Row ss:StyleID="hdr">' + head.map(function (h) { return cell(h); }).join("") + "</Row>\n" +
       rows.slice(1).map(function (r) { return "   " + r + "\n"; }).join("") +
-      "  </Table>\n" +
-      " </Worksheet>\n" +
-      "</Workbook>";
+      "  </Table>\n </Worksheet>\n</Workbook>";
     var blob = new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -1485,6 +1511,7 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
+
   document.getElementById("logMode").addEventListener("change", renderFreqArea);
   document.getElementById("logAdd").addEventListener("click", submitLog);
   document.getElementById("logExport").addEventListener("click", exportLogs);
@@ -1499,6 +1526,45 @@
     if (!d) return;
     delLogEntry(d.getAttribute("data-id")).then(renderLogs);
   });
+  document.getElementById("logFreqArea").addEventListener("change", function (ev) {
+    if (ev.target && ev.target.id === "logFreqPreset") {
+      var v = ev.target.value;
+      var txt = document.getElementById("logFreqTxt");
+      if (txt && v) txt.value = v;
+    }
+  });
+  document.getElementById("logFreqArea").addEventListener("click", function (ev) {
+    if (ev.target && ev.target.id === "logFreqNew") {
+      if (document.getElementById("logFreqNewForm")) return;
+      var h = document.createElement("div");
+      h.id = "logFreqNewForm";
+      h.style.cssText = "flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center;";
+      h.innerHTML = '<input type="text" id="ntName" placeholder="标签名称" style="flex:1 1 90px;min-width:60px"><input type="text" id="ntFreq" placeholder="频率 MHz" style="flex:1 1 80px;min-width:60px"><button class="wbtn primary" id="ntOk">保存</button><button class="wbtn" id="ntCancel">取消</button>';
+      document.getElementById("logFreqArea").appendChild(h);
+      document.getElementById("ntOk").addEventListener("click", async function () {
+        var nm = document.getElementById("ntName").value.trim();
+        var fq = document.getElementById("ntFreq").value.trim();
+        if (!nm || !fq) return;
+        STORE.freqs.push({ id: "F-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: nm, freq: fq, src: "主站" });
+        await storeSave();
+        renderFreqArea();
+      });
+      document.getElementById("ntCancel").addEventListener("click", function () {
+        var f = document.getElementById("logFreqNewForm");
+        if (f) f.remove();
+      });
+    }
+  });
+  document.getElementById("ghTokenSave").addEventListener("click", async function () {
+    try { localStorage.setItem("gh_log_token", document.getElementById("ghToken").value.trim()); } catch (e) {}
+    await storeLoad();
+    renderLogs();
+    renderFreqArea();
+    var msg = document.getElementById("ghSyncMsg");
+    msg.textContent = "✓ 已同步云端";
+    setTimeout(function () { msg.textContent = ""; }, 2500);
+  });
+
 
   /* ============ events ============ */
   el.search.addEventListener("input", applyFilters);
@@ -1545,6 +1611,7 @@
   window.__retry = load;
 
   /* ============ boot ============ */
+  try { document.getElementById("ghToken").value = localStorage.getItem("gh_log_token") || ""; } catch (e) {}
   tickClock();
   setInterval(tickClock, 1000);
   schedule();
