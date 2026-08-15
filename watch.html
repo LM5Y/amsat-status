@@ -87,6 +87,7 @@
   .wmsg { text-align: center; font-size: 12px; color: #2fca7d; min-height: 16px; margin-top: 6px; }
   .loglist { flex: 1 1 auto; overflow-y: auto; scrollbar-width: none; margin-top: 6px; min-height: 0; }
   .loglist::-webkit-scrollbar { display: none; }
+  .fsat.newtag { border-style: dashed; color: #9cc0ff; }
   .lrow { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid #151515; font-size: 12px; }
   .lrow .c { font-weight: 700; }
   .lrow .m { color: #9cc0ff; font-size: 11px; }
@@ -183,6 +184,11 @@
     <input type="text" id="wTimeManual" placeholder="2026-08-15 18:30" style="display:none" autocomplete="off">
     <button class="wsubmit" id="wLogAdd">记 录</button>
     <div class="wmsg" id="wLogMsg"></div>
+    <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
+      <input type="password" id="wGhToken" placeholder="☁ GitHub Token（选填）" autocomplete="off" style="flex:1 1 120px;background:#121212;border:1px solid #222;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px">
+      <button id="wGhSave" style="background:#1d4ed8;border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px">同步</button>
+      <span class="wmsg" id="wSyncMsg" style="min-width:0"></span>
+    </div>
   </div>
   <div class="loglist" id="wLogList"></div>
 </div>
@@ -805,7 +811,61 @@
   }
 
   /* ===== 通联日志 ===== */
+  var PRESETS = {
+    "本地FM": ["145.500", "145.550", "145.600", "145.800", "146.100", "147.500", "430.500", "438.500", "439.500"],
+    "FT8": ["3.573", "7.074", "10.136", "14.074", "18.100", "21.074", "24.915", "28.074", "50.313", "144.174", "432.174"]
+  };
+  var STORE = { logs: [], freqs: [] };
+  var CLOUD_REPO = "LM5Y/amsat-status";
   var wSatSel = "";
+  var wSelFreq = "";
+
+  function ghToken() { try { return localStorage.getItem("gh_log_token") || ""; } catch (e) { return ""; } }
+  function b64(s) { try { return btoa(unescape(encodeURIComponent(s))); } catch (e) { return ""; } }
+  async function cloudGet() {
+    var r = await fetch("https://raw.githubusercontent.com/" + CLOUD_REPO + "/main/logs.json", { cache: "no-store" });
+    if (!r.ok) return null;
+    return r.json();
+  }
+  async function cloudPut() {
+    var t = ghToken();
+    if (!t) return false;
+    try {
+      var g = await fetch("https://api.github.com/repos/" + CLOUD_REPO + "/contents/logs.json", { headers: { Authorization: "token " + t } });
+      var meta = g.ok ? await g.json() : null;
+      var body = { message: "update logs", content: b64(JSON.stringify(STORE)) };
+      if (meta && meta.sha) body.sha = meta.sha;
+      var p = await fetch("https://api.github.com/repos/" + CLOUD_REPO + "/contents/logs.json", { method: "PUT", headers: { Authorization: "token " + t, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      return p.ok;
+    } catch (e) { return false; }
+  }
+  async function storeLoad() {
+    var cloud = null, server = null, localL = [], localF = [];
+    try { cloud = await cloudGet(); } catch (e) {}
+    try { server = await (await fetch("/api/store", { cache: "no-store" })).json(); } catch (e) {}
+    try { localL = JSON.parse(localStorage.getItem("amsat_logs") || "[]"); localF = JSON.parse(localStorage.getItem("amsat_freqs") || "[]"); } catch (e) {}
+    var seen = {}, logs = [];
+    [cloud && cloud.logs, server && server.logs, localL].forEach(function (arr) {
+      (arr || []).forEach(function (x) { if (x && x.id && !seen[x.id]) { seen[x.id] = 1; logs.push(x); } });
+    });
+    STORE.logs = logs.sort(function (a, b) { return (b.time || "").localeCompare(a.time || ""); });
+    var fseen = {}, freqs = [];
+    [cloud && cloud.freqs, server && server.freqs, localF].forEach(function (arr) {
+      (arr || []).forEach(function (f) { if (f && f.id && !fseen[f.id]) { fseen[f.id] = 1; freqs.push(f); } });
+    });
+    STORE.freqs = freqs;
+    try { document.getElementById("wGhToken").value = localStorage.getItem("gh_log_token") || ""; } catch (e) {}
+  }
+  async function storeSave() {
+    try { await cloudPut(); } catch (e) {}
+    try { await fetch("/api/store", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(STORE) }); } catch (e) {}
+    try { localStorage.setItem("amsat_logs", JSON.stringify(STORE.logs)); localStorage.setItem("amsat_freqs", JSON.stringify(STORE.freqs)); } catch (e) {}
+  }
+  async function addLogEntry(entry) {
+    entry.id = entry.id || "L-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    STORE.logs.unshift(entry);
+    await storeSave();
+  }
   function renderWFreq() {
     var mode = document.querySelector("#wMode .wchip.on").getAttribute("data-m");
     var box = document.getElementById("wFreq");
@@ -816,9 +876,17 @@
         var d = SAT_DETAILS[r.name];
         return '<span class="fsat' + (r.disp === wSatSel ? " on" : "") + '" data-sat="' + esc(r.disp) + '">' + esc(r.disp) + (d && d.downlink ? " " + esc(d.downlink) : "") + "</span>";
       }).join("");
-    } else {
-      box.innerHTML = '<input type="text" id="wFreqTxt" placeholder="频率 MHz，如 145.500" autocomplete="off">';
+      return;
     }
+    var chips = "";
+    (PRESETS[mode] || []).forEach(function (f) {
+      chips += '<span class="fsat' + (wSelFreq === f ? " on" : "") + '" data-f="' + f + '">' + f + "</span>";
+    });
+    STORE.freqs.forEach(function (f) {
+      chips += '<span class="fsat' + (wSelFreq === f.freq ? " on" : "") + '" data-f="' + esc(f.freq) + '" title="' + esc(f.name) + '">' + esc(f.name) + "</span>";
+    });
+    chips += '<span class="fsat newtag">＋新建</span>';
+    box.innerHTML = chips + '<input type="text" id="wFreqTxt" placeholder="或手动 MHz" autocomplete="off" style="width:100%;margin-top:6px">';
   }
   function wTimeVal() {
     var mode = document.querySelector("#wTime .wchip.on").getAttribute("data-t");
@@ -828,32 +896,6 @@
     var mv = document.getElementById("wTimeManual").value.trim();
     if (!mv) return { time: d.toISOString(), text: "（未填）" };
     return { time: "", text: mv };
-  }
-  function getLogs() {
-    var local = [];
-    try { local = JSON.parse(localStorage.getItem("amsat_logs") || "[]"); } catch (e) {}
-    return fetch("/api/logs", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (serverLogs) {
-      if (serverLogs) {
-        var ids = {};
-        serverLogs.forEach(function (l) { ids[l.id] = 1; });
-        return serverLogs.concat(local.filter(function (l) { return l.local && !ids[l.id]; }));
-      }
-      return local;
-    }).catch(function () { return local; });
-  }
-  function addLogEntry(entry) {
-    entry.id = entry.id || "L-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    return fetch("/api/logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry) }).then(function (r) {
-      if (r.ok) return r.json();
-      throw new Error("server");
-    }).catch(function () {
-      entry.local = true;
-      var local = [];
-      try { local = JSON.parse(localStorage.getItem("amsat_logs") || "[]"); } catch (e) {}
-      local.unshift(entry);
-      try { localStorage.setItem("amsat_logs", JSON.stringify(local)); } catch (e) {}
-      return entry;
-    });
   }
   async function wAddLog() {
     var msg = document.getElementById("wLogMsg");
@@ -867,7 +909,7 @@
       frequency = (hit && SAT_DETAILS[hit.name] && SAT_DETAILS[hit.name].downlink) || "";
     } else {
       var fv = document.getElementById("wFreqTxt").value.trim();
-      frequency = fv ? fv + " MHz" : "";
+      frequency = (fv || wSelFreq || "") + ((fv || wSelFreq) ? " MHz" : "");
     }
     var tv = wTimeVal();
     await addLogEntry({ callsign: call, mode: mode, satellite: satellite, frequency: frequency, time: tv.time, timeText: tv.text, src: "手表" });
@@ -877,13 +919,33 @@
     setTimeout(function () { msg.textContent = ""; }, 2000);
   }
   async function renderWLogs() {
-    var logs = await getLogs();
     var box = document.getElementById("wLogList");
-    if (!logs.length) { box.innerHTML = '<div class="empty">暂无记录</div>'; return; }
-    box.innerHTML = logs.slice(0, 8).map(function (l) {
+    if (!STORE.logs.length) { box.innerHTML = '<div class="empty">暂无记录</div>'; return; }
+    box.innerHTML = STORE.logs.slice(0, 8).map(function (l) {
       var f = l.satellite || l.frequency || "";
       return '<div class="lrow"><span class="c">' + esc(l.callsign || "—") + '</span><span class="m">' + esc(l.mode || "") + '</span><span class="f">' + esc(f) + '</span><span class="t">' + esc((l.timeText || "").slice(5, 19)) + "</span></div>";
     }).join("");
+  }
+  function newTagW() {
+    if (document.getElementById("wTagForm")) return;
+    var h = document.createElement("div");
+    h.id = "wTagForm";
+    h.style.cssText = "flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;";
+    h.innerHTML = '<input type="text" id="wtName" placeholder="名称" style="flex:1 1 80px;background:#121212;border:1px solid #222;color:#fff;border-radius:8px;padding:8px;font-size:12px">' +
+      '<input type="text" id="wtFreq" placeholder="MHz" style="flex:1 1 70px;background:#121212;border:1px solid #222;color:#fff;border-radius:8px;padding:8px;font-size:12px">' +
+      '<button id="wtOk" style="background:#2563eb;border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px">保存</button>' +
+      '<button id="wtCancel" style="background:#222;border:none;color:#9ca3af;border-radius:8px;padding:8px 12px;font-size:12px">取消</button>';
+    document.getElementById("wFreq").appendChild(h);
+    document.getElementById("wtOk").addEventListener("click", async function () {
+      var nm = document.getElementById("wtName").value.trim();
+      var fq = document.getElementById("wtFreq").value.trim();
+      if (!nm || !fq) return;
+      STORE.freqs.push({ id: "F-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: nm, freq: fq, src: "手表" });
+      wSelFreq = fq;
+      await storeSave();
+      renderWFreq();
+    });
+    document.getElementById("wtCancel").addEventListener("click", function () { var f = document.getElementById("wTagForm"); if (f) f.remove(); });
   }
   document.getElementById("wMode").addEventListener("click", function (ev) {
     var c = ev.target.closest(".wchip");
@@ -895,7 +957,9 @@
   document.getElementById("wFreq").addEventListener("click", function (ev) {
     var f = ev.target.closest(".fsat");
     if (!f) return;
-    wSatSel = f.getAttribute("data-sat");
+    if (f.classList.contains("newtag")) { newTagW(); return; }
+    if (f.hasAttribute("data-sat")) { wSatSel = f.getAttribute("data-sat"); wSelFreq = ""; }
+    else { wSelFreq = f.getAttribute("data-f"); wSatSel = ""; }
     renderWFreq();
   });
   document.getElementById("wTime").addEventListener("click", function (ev) {
@@ -906,7 +970,17 @@
     document.getElementById("wTimeManual").style.display = c.getAttribute("data-t") === "manual" ? "block" : "none";
   });
   document.getElementById("wLogAdd").addEventListener("click", wAddLog);
+  document.getElementById("wGhSave").addEventListener("click", async function () {
+    try { localStorage.setItem("gh_log_token", document.getElementById("wGhToken").value.trim()); } catch (e) {}
+    await storeLoad();
+    renderWLogs();
+    renderWFreq();
+    var m = document.getElementById("wSyncMsg");
+    m.textContent = "✓ 已同步";
+    setTimeout(function () { m.textContent = ""; }, 2000);
+  });
   document.getElementById("wLogBtn").addEventListener("click", function () { show("p4"); renderWFreq(); renderWLogs(); });
+
 
   tick();
   setInterval(tick, 1000);
