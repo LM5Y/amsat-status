@@ -246,6 +246,11 @@
   .log-form textarea { width: 100%; background: #fff; border: 1px solid var(--line); color: var(--text); border-radius: 9px; padding: 9px 12px; font-size: .88rem; resize: vertical; min-height: 44px; font-family: inherit; }
   .log-form textarea:focus { outline: none; border-color: var(--accent); }
   .log-actions { display: flex; gap: 9px; align-items: center; }
+  .fa-chips { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .fa-lbl { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+  .fchip { font-size: .82rem; padding: 4px 10px; border-radius: 999px; background: var(--card-hover); border: 1px solid var(--line); cursor: pointer; font-variant-numeric: tabular-nums; }
+  .fchip:hover { border-color: var(--accent); color: var(--accent); }
+  .fchip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   .log-row { flex-wrap: wrap; }
   .log-row .r { flex-basis: 100%; color: var(--gray); font-size: .76rem; }
   .log-empty { text-align: center; color: var(--gray); font-size: .8rem; padding: 14px; }
@@ -1407,20 +1412,23 @@
     var mode = document.getElementById("logMode").value;
     var area = document.getElementById("logFreqArea");
     if (mode === "FM卫星") {
-      area.innerHTML = '<select id="logFreqSat">' + FM_SATS.map(function (r) {
+      area.innerHTML = '<span class="fa-lbl">FM 卫星：</span><select id="logFreqSat">' + FM_SATS.map(function (r) {
         var d = SAT_DETAILS[r.name];
         return '<option value="' + esc(r.displayName) + '">' + esc(r.displayName) + (d && d.downlink ? " · " + esc(d.downlink) : "") + "</option>";
       }).join("") + "</select>";
       return;
     }
-    var opts = '<option value="">— 常用 —</option>';
-    (PRESETS[mode] || []).forEach(function (f) { opts += '<option value="' + f + '">' + f + " MHz</option>"; });
+    var chips = '<span class="fa-lbl">常用：</span>';
+    (PRESETS[mode] || []).forEach(function (f) {
+      chips += '<span class="fchip" data-f="' + f + '">' + f + "</span>";
+    });
     if (STORE.freqs.length) {
-      opts += '<optgroup label="我的标签">';
-      STORE.freqs.forEach(function (f) { opts += '<option value="' + esc(f.freq) + '">' + esc(f.name) + "（" + esc(f.freq) + " MHz）</option>"; });
-      opts += "</optgroup>";
+      chips += '<span class="fa-lbl">我的标签：</span>';
+      STORE.freqs.forEach(function (f) {
+        chips += '<span class="fchip" data-f="' + esc(f.freq) + '" title="' + esc(f.name) + '">' + esc(f.name) + "</span>";
+      });
     }
-    area.innerHTML = '<select id="logFreqPreset">' + opts + "</select>" +
+    area.innerHTML = '<div class="fa-chips">' + chips + '</div>' +
       '<input type="text" id="logFreqTxt" placeholder="或手动输入频率 (MHz)" autocomplete="off">' +
       '<button class="wbtn" id="logFreqNew">＋ 新建标签</button>';
   }
@@ -1526,14 +1534,15 @@
     if (!d) return;
     delLogEntry(d.getAttribute("data-id")).then(renderLogs);
   });
-  document.getElementById("logFreqArea").addEventListener("change", function (ev) {
-    if (ev.target && ev.target.id === "logFreqPreset") {
-      var v = ev.target.value;
-      var txt = document.getElementById("logFreqTxt");
-      if (txt && v) txt.value = v;
-    }
-  });
   document.getElementById("logFreqArea").addEventListener("click", function (ev) {
+    var c = ev.target.closest(".fchip");
+    if (c) {
+      var txt = document.getElementById("logFreqTxt");
+      if (txt) txt.value = c.getAttribute("data-f");
+      var all = document.querySelectorAll("#logFreqArea .fchip");
+      for (var i = 0; i < all.length; i++) all[i].classList.toggle("on", all[i] === c);
+      return;
+    }
     if (ev.target && ev.target.id === "logFreqNew") {
       if (document.getElementById("logFreqNewForm")) return;
       var h = document.createElement("div");
