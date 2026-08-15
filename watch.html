@@ -1015,6 +1015,7 @@
   setInterval(load, 120000);
   storeLoad().then(function () { renderWLogs(); renderWFreq(); });
   setInterval(storeLoad, 120000);
+  try { var hh = location.hash; if (hh && document.getElementById(hh.slice(1))) show(hh.slice(1)); } catch (e) {}
 })();
 </script>
 </body>
