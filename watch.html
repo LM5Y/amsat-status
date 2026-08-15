@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=466, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>卫星状态 · 手表版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #000; color: #e8eef9; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  body {
+    width: 466px; height: 466px; margin: 0 auto;
+    overflow: hidden; display: flex; flex-direction: column;
+    user-select: none; -webkit-user-select: none;
+  }
+  .wrap { flex: 1; display: flex; flex-direction: column; padding: 56px 44px 46px; min-height: 0; }
+
+  header { text-align: center; flex: 0 0 auto; }
+  header .t { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  header .s { font-size: 14px; color: #8f9cb8; margin-top: 4px; }
+  header .s b { color: #2fca7d; font-size: 16px; }
+
+  #list { flex: 1 1 auto; overflow-y: auto; min-height: 0; margin: 4px -6px 0 0; padding-right: 6px; scrollbar-width: none; }
+  #list::-webkit-scrollbar { display: none; }
+
+  .row { display: flex; align-items: center; gap: 9px; padding: 7px 2px; border-bottom: 1px solid #151515; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .dot.a { background: #2fca7d; box-shadow: 0 0 7px rgba(47,202,125,.8); }
+  .dot.t { background: #f5a623; }
+  .dot.n { background: #ff6262; }
+  .dot.x { background: #3d3d3d; }
+  .nm { flex: 1 1 auto; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st { flex: 0 0 auto; font-size: 12px; padding: 1px 8px; border-radius: 8px; }
+  .st.a { color: #2fca7d; background: rgba(47,202,125,.13); }
+  .st.t { color: #f5a623; background: rgba(245,166,35,.13); }
+  .st.n { color: #ff6262; background: rgba(255,98,98,.13); }
+  .st.x { color: #7d8aa0; background: rgba(125,138,160,.13); }
+  .tm { flex: 0 0 auto; font-size: 11px; color: #6b7280; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  footer { flex: 0 0 auto; text-align: center; font-size: 11px; color: #4b5563; margin-top: 6px; }
+  .loading { text-align: center; color: #6b7280; font-size: 14px; padding-top: 60px; }
+  .err { text-align: center; color: #ff6262; font-size: 13px; padding-top: 60px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="t">🛰️ 卫星状态</div>
+    <div class="s" id="sum">加载中…</div>
+  </header>
+  <div id="list"><div class="loading">加载中…</div></div>
+  <footer id="upd"></footer>
+</div>
+<script>
+(function () {
+  "use strict";
+  var STATUS = {
+    "Heard": { cls: "a", label: "活跃" },
+    "Crew Active": { cls: "a", label: "船员" },
+    "Telemetry Only": { cls: "t", label: "遥测" },
+    "Not Heard": { cls: "n", label: "未收" }
+  };
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function rel(iso) {
+    if (!iso) return "—";
+    var d = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (d < 0) d = 0;
+    if (d < 60) return d + "秒";
+    if (d < 3600) return Math.floor(d / 60) + "分";
+    if (d < 86400) return Math.floor(d / 3600) + "时";
+    return Math.floor(d / 86400) + "天";
+  }
+
+  async function load() {
+    try {
+      var res = await Promise.all([
+        fetch("https://www.amsat.org/status/api/v1/catalog.php", { cache: "no-store" }).then(function (r) { return r.json(); }),
+        fetch("https://www.amsat.org/status/api/v1/summary.php?hours=24", { cache: "no-store" }).then(function (r) { return r.json(); })
+      ]);
+      var by = {};
+      (res[1].data || []).forEach(function (e) { (by[e.name] = by[e.name] || []).push(e); });
+      var rows = (res[0].data || []).map(function (cat) {
+        var es = by[cat.name] || [];
+        var latest = null, t0 = null;
+        es.forEach(function (e) {
+          if (!t0 || (e.latest_reported_time && e.latest_reported_time > t0)) { t0 = e.latest_reported_time; latest = e; }
+        });
+        return { name: cat.display_name || cat.name, st: latest ? latest.report : null, t: t0 };
+      });
+      var order = { a: 0, t: 1, n: 2, x: 3 };
+      rows.sort(function (a, b) {
+        var ka = order[a.st === "Heard" || a.st === "Crew Active" ? "a" : a.st === "Telemetry Only" ? "t" : a.st === "Not Heard" ? "n" : "x"];
+        var kb = order[b.st === "Heard" || b.st === "Crew Active" ? "a" : b.st === "Telemetry Only" ? "t" : b.st === "Not Heard" ? "n" : "x"];
+        if (ka !== kb) return ka - kb;
+        return (b.t || "").localeCompare(a.t || "");
+      });
+      var active = rows.filter(function (r) { return r.st === "Heard" || r.st === "Crew Active"; }).length;
+      document.getElementById("sum").innerHTML = "<b>" + active + "</b> 活跃 / " + rows.length + " 颗";
+      var html = "";
+      rows.slice(0, 14).forEach(function (r) {
+        var m = r.st ? STATUS[r.st] : null;
+        html += '<div class="row"><span class="dot ' + (m ? m.cls : "x") + '"></span>' +
+          '<span class="nm">' + esc(r.name) + "</span>" +
+          '<span class="st ' + (m ? m.cls : "x") + '">' + (m ? m.label : "无报告") + "</span>" +
+          '<span class="tm">' + rel(r.t) + "</span>" +
+        "</div>";
+      });
+      document.getElementById("list").innerHTML = html;
+      document.getElementById("upd").textContent = "更新于 " + new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    } catch (e) {
+      document.getElementById("list").innerHTML = '<div class="err">加载失败<br>请检查网络</div>';
+    }
+  }
+
+  load();
+  setInterval(load, 120000);
+})();
+</script>
+</body>
+</html>

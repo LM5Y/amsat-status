@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>业余无线电卫星状态查询 · AMSAT</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --card-hover: #fafbfc;
+    --line: #e5e7eb;
+    --line-soft: #eef0f3;
+    --text: #111827;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --green: #16a34a;
+    --amber: #d97706;
+    --red: #dc2626;
+    --gray: #9ca3af;
+    --cyan: #0891b2;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(17,24,39,.06), 0 1px 2px rgba(17,24,39,.04);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: min(1080px, calc(100% - 24px)); margin: 0 auto; padding: 22px 0 56px; }
+
+  /* ---------- header ---------- */
+  header.hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; margin-bottom: 18px; }
+  .brands { display: flex; align-items: center; gap: 16px; }
+  .brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
+  .brand img { height: 32px; width: auto; display: block; }
+  .brand.amsat img { height: 28px; }
+  .brand .bt { font-weight: 800; font-size: 1.18rem; letter-spacing: -.2px; color: var(--text); line-height: 1; }
+  .brand.ds .bt { color: #111827; }
+  .brand.amsat .bt { color: #1d4ed8; letter-spacing: 1px; }
+  .brand-sep { width: 1px; height: 26px; background: var(--line); }
+  .hero h1 { margin: 4px 0 0; font-size: clamp(1.2rem, 2.8vw, 1.6rem); font-weight: 700; letter-spacing: .3px; }
+  .hero .sub { margin: 0; color: var(--muted); font-size: .82rem; }
+  .hero .sub a { color: var(--accent); text-decoration: none; }
+  .hero .sub a:hover { text-decoration: underline; }
+  .live { display: flex; align-items: center; justify-content: center; gap: 9px; flex-wrap: wrap; font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .live .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(22,163,74,.5); animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.45); } 70% { box-shadow: 0 0 0 8px rgba(22,163,74,0); } 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); } }
+  .live .dot.err { background: var(--red); animation: none; }
+  .live .clock { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+  .banner {
+    display: none; margin-bottom: 14px; padding: 13px 16px; border-radius: 11px;
+    border: 1px solid rgba(220,38,38,.3); background: rgba(220,38,38,.06); color: #b91c1c; font-size: .88rem;
+  }
+  .banner.show { display: block; }
+  .banner button { margin-left: 10px; background: var(--text); color: #fff; border: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+
+  /* ---------- stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+  .stat .num { font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: .75rem; color: var(--muted); margin-top: 1px; }
+  .stat .bar { height: 3px; border-radius: 3px; margin-top: 9px; background: var(--line-soft); overflow: hidden; }
+  .stat .bar i { display: block; height: 100%; border-radius: 3px; transition: width .4s; }
+  .s-total .num { color: var(--text); }
+  .s-active .num { color: var(--green); } .s-active .bar i { background: var(--green); }
+  .s-tlm .num { color: var(--amber); } .s-tlm .bar i { background: var(--amber); }
+  .s-notheard .num { color: var(--red); } .s-notheard .bar i { background: var(--red); }
+  .s-none .num { color: var(--gray); } .s-none .bar i { background: var(--gray); }
+
+  /* ---------- weather ---------- */
+  .weather { padding: 16px 18px; margin-bottom: 14px; }
+  .weather .w-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .weather .w-title { font-weight: 700; font-size: 1.02rem; }
+  .weather .w-src { color: var(--muted); font-size: .78rem; }
+  .weather .w-loc { color: var(--muted); font-size: .85rem; }
+  .weather .w-sum { color: var(--accent); font-size: .84rem; margin-left: auto; font-weight: 600; }
+  .weather .w-ctl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 4px; }
+  .weather input {
+    background: #fff; border: 1px solid var(--line); color: var(--text);
+    border-radius: 9px; padding: 8px 12px; font-size: .86rem; flex: 1 1 160px; min-width: 120px;
+  }
+  .weather input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+  .weather .wbtn {
+    background: #fff; border: 1px solid var(--line); color: var(--text);
+    border-radius: 9px; padding: 8px 13px; font-size: .84rem; cursor: pointer; transition: all .15s;
+  }
+  .weather .wbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .weather .wbtn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .weather .wbtn.primary:hover { filter: brightness(1.06); color: #fff; }
+
+  .w-now { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .w-now-item {
+    font-size: .82rem; color: var(--text); background: var(--card-hover);
+    border: 1px solid var(--line-soft); border-radius: 8px; padding: 5px 10px;
+  }
+  .w-now-item b { font-size: 1.05rem; font-weight: 700; margin-right: 3px; }
+  .w-warn {
+    display: none; margin-top: 10px; padding: 10px 13px; border-radius: 9px;
+    border: 1px solid rgba(217,119,6,.35); background: rgba(217,119,6,.08); color: #b45309; font-size: .85rem;
+    align-items: flex-start; gap: 8px; cursor: help;
+  }
+
+  .w-sec { font-size: .78rem; color: var(--muted); font-weight: 600; margin-top: 14px; }
+  .w-chart { display: flex; gap: 8px; align-items: flex-end; height: 150px; margin-top: 6px; }
+  .w-chart-h { height: 176px; }
+  .wsvg { display: block; }
+  .wsvg .wgrid { stroke: #eef0f3; stroke-width: 1; }
+  .wsvg .wylab { fill: #9ca3af; font-size: 10.5px; text-anchor: end; }
+  .wsvg .wxl { fill: #6b7280; font-size: 11px; text-anchor: middle; }
+  .wsvg .wdot { fill: #2563eb; stroke: #fff; stroke-width: 1.6; }
+  .wsvg .wdot.wpeak { fill: #d97706; stroke: #fff; }
+  .wsvg .wpeak { fill: #d97706; font-size: 12px; font-weight: 700; }
+  .w-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+  .w-bar { width: min(78%, 34px); border-radius: 7px 7px 3px 3px; min-height: 2px; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 1px 2px rgba(17,24,39,.07); transition: height .3s, background .3s; }
+  .w-mm { font-size: .68rem; color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 4px; white-space: nowrap; }
+  .w-day { font-size: .72rem; color: var(--text); font-weight: 600; margin-top: 6px; white-space: nowrap; }
+  .w-dayinfo { font-size: .66rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .w-legend { display: flex; gap: 14px; font-size: .72rem; color: var(--muted); margin-top: 10px; flex-wrap: wrap; }
+  .w-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .w-key { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .w-note { font-size: .72rem; color: var(--gray); margin-top: 8px; }
+
+  /* ---------- controls ---------- */
+  .controls { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; margin-bottom: 12px; }
+  .search { flex: 1 1 200px; position: relative; }
+  .search input {
+    width: 100%; background: #fff; border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 9px 13px 9px 34px; font-size: .9rem;
+  }
+  .search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+  .search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; stroke: var(--muted); }
+  select {
+    background: #fff; border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 9px 11px; font-size: .88rem; cursor: pointer; max-width: 180px;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill {
+    border: 1px solid var(--line); background: #fff; color: var(--muted);
+    border-radius: 999px; padding: 7px 13px; font-size: .82rem; cursor: pointer; user-select: none; transition: all .15s;
+  }
+  .pill:hover { border-color: var(--accent); color: var(--text); }
+  .pill.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: .83rem; color: var(--muted); cursor: pointer; }
+  .chk input { accent-color: var(--accent); }
+  button.refresh {
+    background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 9px 15px;
+    font-size: .88rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: filter .15s;
+  }
+  button.refresh:hover { filter: brightness(1.08); }
+  button.refresh:disabled { opacity: .6; cursor: default; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 13px; margin-bottom: 10px; font-size: .78rem; color: var(--muted); align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .sw.g { background: var(--green); } .sw.b { background: var(--cyan); } .sw.y { background: var(--amber); } .sw.r { background: var(--red); } .sw.n { background: var(--gray); }
+
+  /* ---------- list ---------- */
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .row { background: var(--card); border: 1px solid var(--line); border-radius: 13px; box-shadow: var(--shadow); overflow: hidden; transition: border-color .15s, background .15s; }
+  .row:hover { border-color: #cbd5e1; }
+  .row.open { border-color: var(--accent); }
+  .row-head { display: flex; align-items: center; gap: 13px; padding: 11px 15px; cursor: pointer; user-select: none; }
+  .row-head:hover .name { color: var(--accent); }
+  .status-badge { flex: 0 0 auto; min-width: 76px; text-align: center; padding: 5px 9px; border-radius: 8px; font-size: .78rem; font-weight: 600; border: 1px solid transparent; }
+  .status-badge.st-active { background: rgba(22,163,74,.1); color: var(--green); border-color: rgba(22,163,74,.25); }
+  .status-badge.st-crew   { background: rgba(8,145,178,.1); color: var(--cyan); border-color: rgba(8,145,178,.25); }
+  .status-badge.st-tlm    { background: rgba(217,119,6,.1); color: var(--amber); border-color: rgba(217,119,6,.25); }
+  .status-badge.st-notheard { background: rgba(220,38,38,.1); color: var(--red); border-color: rgba(220,38,38,.25); }
+  .status-badge.st-none   { background: rgba(156,163,175,.12); color: var(--gray); border-color: rgba(156,163,175,.22); }
+
+  .main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .name { font-weight: 600; font-size: 1rem; color: var(--text); transition: color .15s; }
+  .mode-tag { font-size: .7rem; padding: 1px 8px; border-radius: 6px; background: rgba(37,99,235,.08); color: var(--accent); border: 1px solid rgba(37,99,235,.2); white-space: nowrap; }
+  .dist { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .76rem; color: var(--muted); }
+  .dist .d { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 5px; background: var(--card-hover); border: 1px solid var(--line-soft); }
+  .dist .d b { font-variant-numeric: tabular-nums; }
+  .dist .d.d-h { color: var(--green); } .dist .d.d-c { color: var(--cyan); } .dist .d.d-t { color: var(--amber); } .dist .d.d-n { color: var(--red); }
+  .dist .empty { color: var(--gray); font-style: italic; }
+  .time { flex: 0 0 auto; min-width: 88px; text-align: right; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .time .ago { color: var(--text); font-weight: 600; }
+  .chev { flex: 0 0 auto; color: var(--muted); transition: transform .2s; display: grid; place-items: center; }
+  .row.open .chev { transform: rotate(180deg); color: var(--accent); }
+  .chev svg { width: 16px; height: 16px; }
+
+  .row-detail { display: none; padding: 2px 15px 15px; border-top: 1px solid var(--line-soft); background: var(--card-hover); }
+  .row.open .row-detail { display: block; animation: fade .18s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  .rd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 18px; margin-top: 12px; }
+  .rd-field { display: flex; gap: 8px; align-items: baseline; }
+  .rd-k { flex: 0 0 auto; color: var(--muted); font-size: .8rem; min-width: 92px; }
+  .rd-v { color: var(--text); font-size: .9rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .rd-desc { margin-top: 10px; color: var(--muted); font-size: .86rem; max-width: 820px; }
+  .rd-links { margin-top: 10px; font-size: .82rem; }
+  .rd-links a { color: var(--accent); text-decoration: none; margin-right: 12px; }
+  .rd-links a:hover { text-decoration: underline; }
+  .rd-empty { margin-top: 12px; color: var(--muted); font-size: .86rem; }
+  .rd-empty a { color: var(--accent); text-decoration: none; }
+  .rd-src { margin-top: 8px; color: var(--gray); font-size: .72rem; }
+
+  .footnote { margin-top: 16px; font-size: .76rem; color: var(--muted); text-align: center; }
+  .footnote a { color: var(--accent); text-decoration: none; }
+  .empty-state { text-align: center; padding: 44px 20px; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 12px; }
+  .spinner { width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; margin: 36px auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 620px) {
+    .row-head { flex-wrap: wrap; gap: 9px; }
+    .time { text-align: left; flex: 1 1 auto; }
+    .status-badge { min-width: 68px; }
+    .live { width: 100%; }
+    .weather .w-sum { margin-left: 0; width: 100%; }
+    .rd-grid { grid-template-columns: 1fr; }
+    .w-chart { gap: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="brands">
+      <a class="brand ds" href="https://www.deepseek.com" target="_blank" rel="noopener" title="DeepSeek"><img src="ds_whale.png" alt="DeepSeek"><span class="bt">DeepSeek</span></a>
+      <span class="brand-sep"></span>
+      <a class="brand amsat" href="https://www.amsat.org" target="_blank" rel="noopener" title="AMSAT"><img src="amsat_logo.png" alt="AMSAT"><span class="bt">AMSAT</span></a>
+    </div>
+    <h1>业余无线电卫星状态查询</h1>
+    <p class="sub">数据来自 <a href="https://www.amsat.org/status/api/" target="_blank" rel="noopener">AMSAT 官方状态 API</a> · 官方预报来自 <a href="https://www.nmc.cn" target="_blank" rel="noopener">中央气象台</a> · 点击卫星展开频率详情</p>
+    <div class="live" id="live">
+      <span class="dot" id="liveDot"></span>
+      <span id="liveText">加载中…</span>
+      <span class="clock" id="utcClock"></span>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <section class="stats" id="stats">
+    <div class="stat s-total"><div class="num" id="nTotal">–</div><div class="lbl">卫星总数</div></div>
+    <div class="stat s-active"><div class="num" id="nActive">–</div><div class="lbl">活跃 (Heard / Crew)</div><div class="bar"><i id="bActive"></i></div></div>
+    <div class="stat s-tlm"><div class="num" id="nTlm">–</div><div class="lbl">仅遥测 (Telemetry)</div><div class="bar"><i id="bTlm"></i></div></div>
+    <div class="stat s-notheard"><div class="num" id="nNotHeard">–</div><div class="lbl">未收到 (Not Heard)</div><div class="bar"><i id="bNotHeard"></i></div></div>
+    <div class="stat s-none"><div class="num" id="nNone">–</div><div class="lbl">窗口内无报告</div><div class="bar"><i id="bNone"></i></div></div>
+  </section>
+
+  <section class="card weather" id="weather">
+    <div class="w-head">
+      <div class="w-title">降水预报</div>
+      <span class="w-src">中央气象台 · 中国气象局</span>
+      <span class="w-sum" id="wSum"></span>
+    </div>
+    <div class="w-ctl">
+      <input type="text" id="citySearch" placeholder="搜索城市，如：北京 / 上海 / 广州 / 扬州" autocomplete="off">
+      <button class="wbtn primary" id="cityBtn">查询</button>
+      <button class="wbtn" id="geoBtn">📍 定位</button>
+    </div>
+    <div class="w-loc" id="wLoc">加载中…</div>
+    <div class="w-now" id="wNow"></div>
+    <div class="w-warn" id="wWarn"></div>
+    <div class="w-sec">未来 24 小时逐小时降水概率</div>
+    <div class="w-chart w-chart-h" id="wChartHourly"><div class="spinner"></div></div>
+    <div class="w-sec">未来 7 天降水预报</div>
+    <div class="w-chart" id="wChart"><div class="spinner"></div></div>
+    <div class="w-legend" id="wLegend">
+      <span><i class="w-key" style="background:#e5e7eb"></i>无降水</span>
+      <span><i class="w-key" style="background:#93c5fd"></i>0–1 mm</span>
+      <span><i class="w-key" style="background:#60a5fa"></i>1–2.5 mm</span>
+      <span><i class="w-key" style="background:#3b82f6"></i>2.5–5 mm</span>
+      <span><i class="w-key" style="background:#1d4ed8"></i>&gt;5 mm</span>
+    </div>
+    <div class="w-note">逐小时降水概率：Open-Meteo（1 小时精度，免费免密钥）· 7 天预报与预警：中央气象台（www.nmc.cn）。</div>
+  </section>
+
+  <div class="controls">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="search" placeholder="搜索卫星名称，如 AO-91、ISS、RS-44…" autocomplete="off">
+    </div>
+    <select id="modeFilter"><option value="">全部模式</option></select>
+    <select id="window">
+      <option value="6">近 6 小时</option>
+      <option value="12">近 12 小时</option>
+      <option value="24" selected>近 24 小时</option>
+      <option value="48">近 48 小时</option>
+      <option value="72">近 72 小时</option>
+    </select>
+    <div class="pills" id="statusPills">
+      <div class="pill on" data-f="all">全部</div>
+      <div class="pill" data-f="active">活跃</div>
+      <div class="pill" data-f="tlm">仅遥测</div>
+      <div class="pill" data-f="notheard">未收到</div>
+      <div class="pill" data-f="none">无报告</div>
+    </div>
+    <label class="chk"><input type="checkbox" id="autoRefresh" checked>自动刷新</label>
+    <button class="refresh" id="refreshBtn">⟳ 刷新</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw g"></i>活跃</span>
+    <span><i class="sw b"></i>船员活跃</span>
+    <span><i class="sw y"></i>仅遥测</span>
+    <span><i class="sw r"></i>未收到</span>
+    <span><i class="sw n"></i>无报告</span>
+    <span style="margin-left:auto">最近报告为窗口内最新通联时间（UTC）</span>
+  </div>
+
+  <div id="list" class="list"><div class="spinner"></div></div>
+
+  <p class="footnote">
+    状态依据 AMSAT 报告体系：<b>Heard</b> 可通联 · <b>Crew Active</b> ISS 机组语音活跃 · <b>Telemetry Only</b> 仅信标/遥测 · <b>Not Heard</b> 无信号 ·
+    频率资料来自 <a href="https://www.amsat.org/fm-satellite-frequency-summary/" target="_blank" rel="noopener">AMSAT 频率汇总</a>，数据源 <a href="https://www.amsat.org/status/" target="_blank" rel="noopener">amsat.org/status</a>
+  </p>
+</div>
+
+<script src="nmc_cities.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var CITY = (typeof NMC_CITY !== "undefined") ? NMC_CITY : {};
+
+    var SAT_DETAILS = {
+    /* ---- FM 语音中继 ---- */
+    "SO-50_[FM]": {
+      aliases: "SaudiSat-1C（沙特 1C）",
+      type: "FM 语音中继",
+      uplink: "145.850 MHz",
+      downlink: "436.795 MHz",
+      tone: "上行 CTCSS 67.0 Hz；激活需 74.4 Hz",
+      desc: "全球最常用的 FM 语音中继之一。发射前需用 74.4 Hz 亚音发约 2 秒载波，激活 10 分钟定时器后方可通联。"
+    },
+    "AO-91_[FM]": {
+      aliases: "RadFxSat / Fox-1B",
+      type: "FM 语音中继",
+      uplink: "435.250 MHz",
+      downlink: "145.960 MHz",
+      tone: "上行 CTCSS 67.0 Hz",
+      desc: "福克斯 1B（范德堡大学 RadFxSat 载荷）。因电池老化，请勿在卫星进入阴影区时尝试通联。"
+    },
+    "AO-123_[FM]": {
+      aliases: "ASRTU-1（中俄高校 ASRTU-1）",
+      type: "FM 语音中继",
+      uplink: "145.850 MHz",
+      downlink: "435.400 MHz",
+      tone: "上行 CTCSS 67.0 Hz",
+      desc: "哈尔滨工业大学与 ASRTU 联盟研制，2024 年发射，FM 转发器已进入连续服务。"
+    },
+    "CAS-3H_[FM]": {
+      aliases: "LilacSat-2（紫丁香二号）",
+      type: "FM 语音中继",
+      uplink: "144.350 MHz",
+      downlink: "437.200 MHz",
+      tone: "无（FM 转发器）",
+      desc: "哈工大紫丁香二号。FM 转发器无固定时间表，关闭时 437.200 MHz 有遥测信标。"
+    },
+    "IO-86_[FM]": {
+      aliases: "LAPAN-A2（印度尼西亚）",
+      type: "FM 语音中继",
+      uplink: "145.880 MHz",
+      downlink: "435.880 MHz",
+      tone: "上行 CTCSS 88.5 Hz",
+      desc: "印尼 LAPAN-A2 卫星，低倾角轨道（覆盖约 ±30° 纬度），FM 语音中继按计划激活。"
+    },
+    "ISS_[FM]": {
+      aliases: "国际空间站 / ISS 跨段中继",
+      type: "FM 语音中继",
+      uplink: "145.990 MHz",
+      downlink: "437.800 MHz",
+      tone: "上行 CTCSS 67.0 Hz",
+      desc: "国际空间站 FM 跨段中继，覆盖范围最广的中继之一。开启状态以 ARISS / AMSAT 状态为准。"
+    },
+    "PO-101_[FM]": {
+      aliases: "Diwata-2（菲律宾）",
+      type: "FM 语音中继",
+      uplink: "437.500 MHz",
+      downlink: "145.900 MHz",
+      tone: "上行 CTCSS 141.3 Hz",
+      desc: "菲律宾 Diwata-2 卫星，FM 转发器按计划激活，卫星状态欠佳。"
+    },
+    "RS95S_[FM]": {
+      aliases: "QMR-KWT-2（科威特）",
+      type: "FM 语音中继",
+      uplink: "145.920 MHz",
+      downlink: "436.950 MHz",
+      tone: "上行 CTCSS 67.0 Hz",
+      desc: "科威特 QMR-KWT-2，FM 转发器测试中，同时支持 SSTV 图像下传。"
+    },
+
+    /* ---- 线性转发器 ---- */
+    "AO-7_[U/v]": {
+      aliases: "OSCAR-7（1974 年发射）",
+      type: "线性转发器（模式 B）",
+      uplink: "432.125–432.175 MHz（LSB）",
+      downlink: "145.925–145.975 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "1974 年发射的传奇卫星，至今仍在工作。模式 B 为反转线性转发器，仅在日照时工作。"
+    },
+    "AO-7_[V/a]": {
+      aliases: "OSCAR-7（1974 年发射）",
+      type: "线性转发器（模式 A）",
+      uplink: "145.850–145.950 MHz（USB）",
+      downlink: "29.400–29.500 MHz（USB）",
+      tone: "无（SSB/CW 非反转转发器）",
+      desc: "模式 A 非反转转发器，2m 上行 / 10m 下行，仅在日照时工作。"
+    },
+    "AO-73_[U/v]": {
+      aliases: "FUNcube-1（英国）",
+      type: "线性转发器",
+      uplink: "435.130–435.150 MHz（LSB）",
+      downlink: "145.950–145.970 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "FUNcube-1 教育卫星，反转线性转发器，阴影区仍可工作，1k2 BPSK 遥测 145.935 MHz。"
+    },
+    "FO-29_[V/u]": {
+      aliases: "JAS-2（富士 2 号）",
+      type: "线性转发器",
+      uplink: "145.900–146.000 MHz（LSB）",
+      downlink: "435.800–435.900 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "日本富士 2 号（JAS-2），反转线性转发器按计划激活，CW 信标 435.795 MHz。"
+    },
+    "JO-97_[U/v]": {
+      aliases: "JY1Sat（约旦）",
+      type: "线性转发器",
+      uplink: "435.100–435.120 MHz（LSB）",
+      downlink: "145.855–145.875 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "约旦 JY1Sat 卫星，反转线性转发器。"
+    },
+    "RS-44_[V/u]": {
+      aliases: "DOSAAF-85",
+      type: "线性转发器",
+      uplink: "145.935–145.995 MHz（LSB）",
+      downlink: "435.610–435.670 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "俄罗斯 RS-44（原 DOSAAF-85），反转线性转发器，广受欢迎，CW 信标 435.605 MHz。"
+    },
+    "TO-108_[U/v]": {
+      aliases: "CAS-6（中国）",
+      type: "线性转发器",
+      uplink: "435.270–435.290 MHz（LSB）",
+      downlink: "145.915–145.935 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "反转线性转发器，当前间歇性工作（约 2 秒开、5 秒关），CW 信标 145.910 MHz。"
+    },
+    "QO-100_[NB]": {
+      aliases: "Es'hail-2 / P4A（卡塔尔）",
+      type: "线性转发器（窄带）",
+      uplink: "2400.000–2400.500 MHz（USB）",
+      downlink: "10489.500–10490.000 MHz（USB）",
+      tone: "无",
+      desc: "地球静止轨道（东经 25.9°）业余卫星，覆盖欧亚非，窄带 SSB/CW 转发器。"
+    },
+    "QO-100_[WB]": {
+      aliases: "Es'hail-2 / P4A（卡塔尔）",
+      type: "宽带数字转发器（DATV）",
+      uplink: "2401.500–2409.500 MHz",
+      downlink: "10491.000–10499.000 MHz",
+      tone: "无",
+      desc: "QO-100 宽带数字转发器，用于 DATV 等高速数据，需 1.2m 以上抛物面天线。"
+    },
+    "CatSat_[C/x]": {
+      aliases: "CatSat（美国）",
+      type: "高频线性转发器",
+      uplink: "5.663 GHz（USB）",
+      downlink: "10.470 GHz（USB）",
+      tone: "无",
+      desc: "C/x 高频段转发器，需提交表单申请激活信标或转发器。"
+    },
+
+    /* ---- 数字中继 / APRS ---- */
+    "ISS_[VHF_Digi]": {
+      aliases: "国际空间站 APRS（RS0ISS / ARISS）",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "国际空间站 APRS 数字中继，别名 RS0ISS / NA1SS / ARISS。"
+    },
+    "CO-128_[VHF_Digi]": {
+      aliases: "MARMOTSat",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "145.875 MHz（1k2）",
+      tone: "无",
+      desc: "MARMOTSat 数字中继。"
+    },
+    "CroCube_[UHF_Digi]": {
+      aliases: "CroCube（克罗地亚，9A0CC）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "436.775 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "克罗地亚 CroCube 数字中继，呼号 9A0CC。"
+    },
+    "Foresail-1p_[UHF_Digi]": {
+      aliases: "Foresail-1p（芬兰）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "437.125 MHz（9k6）",
+      tone: "无",
+      desc: "芬兰 Foresail-1p 数字中继。"
+    },
+    "GRBBeta_[VHF_Digi]": {
+      aliases: "GRBBeta（匈牙利，HA2GRB）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "145.935 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "匈牙利 GRBBeta 数字中继，呼号 HA2GRB。"
+    },
+    "GRBBeta_[UHF_Digi]": {
+      aliases: "GRBBeta（匈牙利，HA2GRB）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "436.785 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "匈牙利 GRBBeta 数字中继（UHF）。"
+    },
+    "KNACKSAT-2_[VHF_Digi]": {
+      aliases: "KNACKSAT-2（泰国）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（9k6 APRS）",
+      tone: "无",
+      desc: "泰国 KNACKSAT-2 数字中继。"
+    },
+    "LASARsat_[UHF_Digi]": {
+      aliases: "LASARsat（OK0LSR）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "436.925 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "LASARsat 数字中继，呼号 OK0LSR。"
+    },
+    "Marina_[VHF_Digi]": {
+      aliases: "Marina",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "145.925 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "Marina 数字中继（VHF）。"
+    },
+    "Marina_[UHF_Digi]": {
+      aliases: "Marina",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "436.680 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "Marina 数字中继（UHF）。"
+    },
+    "NO-44_[VHF_Digi]": {
+      aliases: "PCSAT-1（W3ADO-1）",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "PCSAT-1（NO-44）APRS 数字中继，呼号 W3ADO-1。"
+    },
+    "SONATE-2_[VHF_Digi]": {
+      aliases: "SONATE-2（DP0SNX）",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "SONATE-2 APRS 数字中继，呼号 DP0SNX。"
+    },
+    "IO-86_[VHF_Digi]": {
+      aliases: "LAPAN-A2（YB0X）",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "LAPAN-A2 APRS 数字中继，呼号 YB0X。"
+    },
+
+    /* ---- 图像传输（SSTV / SSDV） ---- */
+    "ISS_[SSTV]": {
+      aliases: "国际空间站 SSTV",
+      type: "图像传输（SSTV）",
+      uplink: "—",
+      downlink: "145.800 MHz（SSTV PD120）",
+      tone: "无",
+      desc: "国际空间站定期开展 SSTV 图像下传活动，请关注 ARISS 活动公告。"
+    },
+    "HC1PX_[SSTV]": { aliases: "GALAPAGOS-UTE-SWSU（厄瓜多尔）", type: "图像传输（SSTV）", uplink: "—", downlink: "437.050 MHz（SSTV Robot36）", tone: "无", desc: "厄瓜多尔卫星，SSTV Robot36 图像下传。" },
+    "RS18S_[SSTV]": { aliases: "SakhaCube-Cholbon", type: "图像传输（SSTV）", uplink: "—", downlink: "437.350 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 SakhaCube-Cholbon，SSTV Robot36 图像下传。" },
+    "RS27S_[SSTV]": { aliases: "UTMN-2", type: "图像传输（SSTV）", uplink: "—", downlink: "436.125 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 UTMN-2，SSTV Robot36 图像下传。" },
+    "RS38S_[SSTV]": { aliases: "VIZARD-meteo", type: "图像传输（SSTV）", uplink: "—", downlink: "437.825 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 VIZARD-meteo，SSTV Robot36 图像下传。" },
+    "RS40S_[SSTV]": { aliases: "UmKA-1", type: "图像传输（SSTV）", uplink: "—", downlink: "437.625 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 UmKA-1，SSTV Robot36 图像下传。" },
+    "RS57S_[SSTV]": { aliases: "Monitor-4", type: "图像传输（SSTV）", uplink: "—", downlink: "436.080 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 Monitor-4，SSTV Robot36 图像下传。" },
+    "RS58S_[SSTV]": { aliases: "Monitor-3", type: "图像传输（SSTV）", uplink: "—", downlink: "435.290 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 Monitor-3，SSTV Robot36 图像下传。" },
+    "RS83S_[SSTV]": { aliases: "Lobachevsky", type: "图像传输（SSTV）", uplink: "—", downlink: "436.320 MHz（SSTV & SSDV）", tone: "无", desc: "俄罗斯 Lobachevsky，SSTV/SSDV 图像下传。" },
+    "RS83S_[SSDV]": { aliases: "Lobachevsky", type: "图像传输（SSDV）", uplink: "—", downlink: "436.320 MHz（SSDV）", tone: "无", desc: "俄罗斯 Lobachevsky，SSDV 图像下传。" },
+    "RS95S_[SSTV]": { aliases: "QMR-KWT-2（科威特）", type: "图像传输（SSTV）", uplink: "—", downlink: "436.950 MHz（SSTV Robot36）", tone: "无", desc: "科威特 QMR-KWT-2，SSTV 图像下传。" },
+    "SONATE-2_[SSTV]": { aliases: "SONATE-2", type: "图像传输（SSTV）", uplink: "—", downlink: "145.880 MHz（SSTV Martin M1）", tone: "无", desc: "SONATE-2，SSTV Martin M1 图像下传。" },
+    "AO-123_[SSTV]": { aliases: "ASRTU-1", type: "图像传输（SSDV）", uplink: "—", downlink: "436.210 MHz（SSDV 9k6 BPSK）", tone: "无", desc: "ASRTU-1（AO-123），SSDV 图像下传。" },
+    "IO-86_[SSDV]": { aliases: "LAPAN-A2", type: "图像传输（SSDV）", uplink: "—", downlink: "145.880 MHz（SSDV 1k2 IL2P）", tone: "无", desc: "LAPAN-A2，SSDV 图像下传。" },
+    "Marina_[SSDV]": { aliases: "Marina", type: "图像传输（SSDV）", uplink: "—", downlink: "436.680 MHz（SSDV）", tone: "无", desc: "Marina，SSDV 图像下传。" },
+    "Luca_[SSDV]": { aliases: "Luca / RS90S", type: "图像传输（SSDV）", uplink: "—", downlink: "437.180 MHz（SSDV 2k4 GMSK）", tone: "无", desc: "Luca（RS90S），SSDV 图像下传。" },
+    "RS90S_[SSDV]": { aliases: "Luca", type: "图像传输（SSDV）", uplink: "—", downlink: "437.180 MHz（SSDV 2k4 GMSK）", tone: "无", desc: "Luca（RS90S），SSDV 图像下传。" },
+    "RS59S_[SSDV]": { aliases: "Horizon", type: "图像传输（SSDV）", uplink: "—", downlink: "435.431 MHz（SSDV 9k6 GFSK）", tone: "无", desc: "俄罗斯 Horizon，SSDV 图像下传。" },
+    "RS61S_[SSDV]": { aliases: "239Alferov", type: "图像传输（SSDV）", uplink: "—", downlink: "436.270 MHz（SSDV 9k6 GFSK）", tone: "无", desc: "俄罗斯 239Alferov，SSDV 图像下传。" },
+    "RS66S_[SSDV]": { aliases: "HyperView-1G", type: "图像传输（SSDV）", uplink: "—", downlink: "436.540 MHz（SSDV 2k4 GMSK）", tone: "无", desc: "俄罗斯 HyperView-1G，SSDV 图像下传。" },
+    "RS92S2_[SSDV]": { aliases: "Geoscan-2", type: "图像传输（SSDV）", uplink: "—", downlink: "436.160 MHz（SSDV 9k6 GFSK）", tone: "无", desc: "俄罗斯 Geoscan-2，SSDV 图像下传。" },
+    "RS92S4_[SSDV]": { aliases: "Geoscan-4", type: "图像传输（SSDV）", uplink: "—", downlink: "435.335 MHz（SSDV 9k6 GFSK）", tone: "无", desc: "俄罗斯 Geoscan-4，SSDV 图像下传。" },
+    "SO-127_[SSDV]": { aliases: "HADES-SA", type: "图像传输（SSDV）", uplink: "—", downlink: "436.875 MHz（SSDV）", tone: "无", desc: "HADES-SA（SO-127），SSDV 图像下传。" },
+
+    /* ---- 音乐信标 ---- */
+    "BALKAN-1_[Music]": { aliases: "BALKAN-1", type: "音乐信标", uplink: "—", downlink: "401.360 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "EMISAR_[Music]": { aliases: "EMISAR", type: "音乐信标", uplink: "—", downlink: "401.334 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "Flamingo-1_[Music]": { aliases: "Flamingo-1", type: "音乐信标", uplink: "—", downlink: "401.050 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "OPTISAT_[Music]": { aliases: "OPTISAT", type: "音乐信标", uplink: "—", downlink: "400.3575 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "OTP-2_[Music]": { aliases: "OTP-2", type: "音乐信标", uplink: "—", downlink: "400.500 MHz", tone: "无", desc: "业余卫星，下行播放《坎巴拉太空计划》主题曲。" },
+    "Out_of_the_Box_[Music]": { aliases: "Out of the Box", type: "音乐信标", uplink: "—", downlink: "402.360 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "Replicator-2_[Music]": { aliases: "Replicator-2", type: "音乐信标", uplink: "—", downlink: "400.500 MHz", tone: "无", desc: "业余卫星，每 3 分钟下行播放一段《Crazy Frog》简化信标。" },
+    "RS40S_[Music]": { aliases: "UmKA-1", type: "音乐信标", uplink: "—", downlink: "437.625 MHz", tone: "无", desc: "俄罗斯 UmKA-1，下行播放动画《Umka》中《北极熊摇篮曲》。" },
+    "T.Microsat-1_[Music]": { aliases: "T.Microsat-1", type: "音乐信标", uplink: "—", downlink: "401.025 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+
+    /* ---- 其他 / 遥测 ---- */
+    "ISS_[Crew]": {
+      aliases: "国际空间站机组语音",
+      type: "机组语音",
+      uplink: "144.490 MHz（区域 2/3）",
+      downlink: "145.800 MHz",
+      tone: "无",
+      desc: "国际空间站宇航员业余无线电语音通联（ARISS）。上行区域 1 使用 145.200 MHz。"
+    },
+
+    /* ---- 遥测 / 数字 / 即将发射 ---- */
+    "CAS-2T_[TLM]": {
+      aliases: "CAS-2T（中国学生 CubeSat）",
+      type: "遥测 / FM 转发器",
+      uplink: "145.925 MHz",
+      downlink: "435.710 MHz（CW 遥测）/ 435.615 MHz（FM 转发器）",
+      tone: "无",
+      desc: "中国学生 CubeSat（2016 年发射），带 FM 转发器与 CW 遥测信标。"
+    },
+    "FO-126_[UHF_TLM]": {
+      aliases: "FO-126 / OrigamiSat-2（日本）",
+      type: "遥测（UHF）",
+      uplink: "—",
+      downlink: "437.505 MHz（AFSK 1k2 / CW 遥测）",
+      tone: "无",
+      desc: "日本 OrigamiSat-2（FO-126，2026 年发射），UHF 遥测信标。"
+    },
+    "FO-126_[5.8G_TLM]": {
+      aliases: "FO-126 / OrigamiSat-2（日本）",
+      type: "遥测（5.8G 高速数据）",
+      uplink: "—",
+      downlink: "5.840 GHz（C 波段高速数据）",
+      tone: "无",
+      desc: "OrigamiSat-2 的 C 波段高速数据下行。"
+    },
+    "INCA-2_[V/u_Digi]": {
+      aliases: "INCA-2",
+      type: "数字中继",
+      uplink: "145.900 MHz",
+      downlink: "437.125 MHz（GMSK 9k6）",
+      tone: "无",
+      desc: "INCA-2 数字中继（GMSK 9k6）。"
+    },
+    "ISS_[UHF_Digi]": {
+      aliases: "国际空间站 UHF APRS",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "437.550 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "国际空间站 UHF APRS 数字中继。"
+    },
+    "ISS_[DATV]": {
+      aliases: "国际空间站 HamTV",
+      type: "数字视频（DATV）",
+      uplink: "—",
+      downlink: "2395.0 MHz（DVB-S2 HamTV）",
+      tone: "无",
+      desc: "国际空间站 HamTV 数字业余电视下行。"
+    },
+    "LO-19_[TLM]": {
+      aliases: "LUSAT-1（阿根廷）",
+      type: "遥测",
+      uplink: "—",
+      downlink: "437.125 MHz（CW 遥测）",
+      tone: "无",
+      desc: "阿根廷 LUSAT-1（LO-19，1990 年发射），CW 遥测信标。"
+    },
+    "UO-11_[TLM]": {
+      aliases: "UoSAT-2（英国）",
+      type: "遥测",
+      uplink: "—",
+      downlink: "145.825 MHz / 435.025 MHz（遥测信标）",
+      tone: "无",
+      desc: "英国 UoSAT-2（UO-11，1984 年发射），遥测信标。"
+    },
+    "CO-128_[DVB-S2]": {
+      aliases: "CO-128 / MARMOTSat（加拿大）",
+      type: "高速数据（DVB-S2）",
+      uplink: "—",
+      downlink: "X 波段 DVB-S2（详见 propagationlab.ca）",
+      tone: "无",
+      desc: "加拿大 MARMOTSat 的高速数据下行，详见 Propagation Lab 官网。"
+    },
+    "CO-128_[TLM]": {
+      aliases: "CO-128 / MARMOTSat（加拿大）",
+      type: "遥测",
+      uplink: "—",
+      downlink: "—（详见 AMSAT / SatNOGS）",
+      tone: "无",
+      desc: "加拿大 MARMOTSat 遥测，详见 AMSAT 状态页与 SatNOGS。"
+    },
+    "RS83S_[FM]": {
+      aliases: "Lobachevsky（俄罗斯）",
+      type: "FM 语音中继",
+      uplink: "—",
+      downlink: "—（FM 参数待 AMSAT 更新）",
+      tone: "—",
+      desc: "俄罗斯 Lobachevsky（RS83S），目前主要下传 SSTV/SSDV（436.320 MHz），FM 转发器参数待公布。"
+    },
+    "SO-127_[CODEC2]": {
+      aliases: "HADES-SA（西班牙）",
+      type: "数字语音（CODEC2）",
+      uplink: "—",
+      downlink: "436.875 MHz（SSDV/数据）",
+      tone: "无",
+      desc: "西班牙 HADES-SA（SO-127）数字模式。"
+    },
+    "SO-127_[FSK]": {
+      aliases: "HADES-SA（西班牙）",
+      type: "数字（FSK）",
+      uplink: "—",
+      downlink: "436.875 MHz（数据）",
+      tone: "无",
+      desc: "西班牙 HADES-SA（SO-127）FSK 数据模式。"
+    },
+    "Ten-Koh2_[V/u]": {
+      aliases: "Ten-Koh2（日本）",
+      type: "线性转发器（即将发射）",
+      uplink: "—",
+      downlink: "—",
+      tone: "无",
+      desc: "日本 Ten-Koh2，V/u 线性转发器，尚未投入运营。"
+    },
+    "LILIUM-4_[VHF_Digi]": {
+      aliases: "LILIUM-4",
+      type: "数字中继（即将发射）",
+      uplink: "—",
+      downlink: "—",
+      tone: "无",
+      desc: "LILIUM-4 数字中继，尚未投入运营。"
+    },
+    "PARUS-6U1_[VHF_Digi]": {
+      aliases: "PARUS-6U1",
+      type: "数字中继（即将发射）",
+      uplink: "—",
+      downlink: "—",
+      tone: "无",
+      desc: "PARUS-6U1 数字中继，尚未投入运营。"
+    }
+  };
+
+  var TEVEL_ALIASES = "Tevel-2 星座（以色列）";
+  var TEVEL_DESC = "以色列 Tevel-2 九颗卫星组成的 FM 转发器星座，覆盖范围广。";
+  for (var ti = 1; ti <= 9; ti++) {
+    SAT_DETAILS["TEVEL2-" + ti + "_[FM]"] = {
+      aliases: TEVEL_ALIASES, type: "FM 语音中继",
+      uplink: "145.970 MHz", downlink: "436.400 MHz", tone: "无（FM 转发器）", desc: TEVEL_DESC
+    };
+  }
+
+
+  var STATUS_META = {
+    "Heard":          { key: "active",   cls: "st-active",   label: "活跃" },
+    "Crew Active":    { key: "crew",     cls: "st-crew",     label: "船员活跃" },
+    "Telemetry Only": { key: "tlm",      cls: "st-tlm",      label: "仅遥测" },
+    "Not Heard":      { key: "notheard", cls: "st-notheard", label: "未收到" }
+  };
+  var STATUS_PRIORITY = { "Crew Active": 4, "Heard": 3, "Telemetry Only": 2, "Not Heard": 1 };
+  var SORT_ORDER = { "crew": 0, "active": 1, "tlm": 2, "notheard": 3, "none": 4 };
+
+  var API = {
+    catalog: "https://www.amsat.org/status/api/v1/catalog.php?include_stats=true",
+    summary: function (h) { return "https://www.amsat.org/status/api/v1/summary.php?hours=" + h; },
+    nmc: function (path) { return "https://www.nmc.cn/rest" + path; }
+  };
+
+  var hours = 24;
+  var rows = [];
+  var filter = "all";
+  var timer = null;
+  var autoOn = true;
+  var lastHourly = null;
+
+  var el = {
+    list: document.getElementById("list"),
+    banner: document.getElementById("banner"),
+    liveText: document.getElementById("liveText"),
+    liveDot: document.getElementById("liveDot"),
+    search: document.getElementById("search"),
+    modeFilter: document.getElementById("modeFilter"),
+    window: document.getElementById("window"),
+    statusPills: document.getElementById("statusPills"),
+    autoRefresh: document.getElementById("autoRefresh"),
+    refreshBtn: document.getElementById("refreshBtn"),
+    utcClock: document.getElementById("utcClock"),
+    wLoc: document.getElementById("wLoc"),
+    wSum: document.getElementById("wSum"),
+    wNow: document.getElementById("wNow"),
+    wWarn: document.getElementById("wWarn"),
+    wChart: document.getElementById("wChart"),
+    wChartHourly: document.getElementById("wChartHourly"),
+    citySearch: document.getElementById("citySearch"),
+    cityBtn: document.getElementById("cityBtn"),
+    geoBtn: document.getElementById("geoBtn")
+  };
+
+  function extractMode(displayName) {
+    var m = String(displayName || "").match(/\[([^\]]+)\]/);
+    return m ? m[1] : "—";
+  }
+  function relativeTime(iso) {
+    if (!iso) return "—";
+    var then = new Date(iso).getTime();
+    if (isNaN(then)) return "—";
+    var diff = Math.floor((Date.now() - then) / 1000);
+    if (diff < 0) diff = 0;
+    if (diff < 60) return diff + " 秒前";
+    var m = Math.floor(diff / 60);
+    if (m < 60) return m + " 分钟前";
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + " 小时前";
+    return Math.floor(h / 24) + " 天前";
+  }
+  function utcStr(iso) {
+    if (!iso) return "";
+    return new Date(iso).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function mergeData(catalog, summary) {
+    var byName = {};
+    for (var i = 0; i < summary.length; i++) {
+      var s = summary[i];
+      (byName[s.name] || (byName[s.name] = [])).push(s);
+    }
+    return catalog.map(function (cat) {
+      var entries = byName[cat.name] || [];
+      var counts = { "Heard": 0, "Crew Active": 0, "Telemetry Only": 0, "Not Heard": 0 };
+      var latestEntry = null, latestTime = null;
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        counts[e.report] = (counts[e.report] || 0) + (e.report_count || 0);
+        var t = e.latest_reported_time;
+        if (!latestTime || (t && t > latestTime)) latestTime = t;
+        if (!latestEntry) { latestEntry = e; }
+        else {
+          var tp = latestEntry.latest_reported_time;
+          if (t > tp || (t === tp && STATUS_PRIORITY[e.report] > STATUS_PRIORITY[latestEntry.report])) latestEntry = e;
+        }
+      }
+      var status = latestEntry ? latestEntry.report : null;
+      var meta = status ? STATUS_META[status] : null;
+      return {
+        name: cat.name, displayName: cat.display_name || cat.name, website: cat.website || null,
+        mode: extractMode(cat.display_name), status: status,
+        statusKey: meta ? meta.key : "none", latestTime: latestTime, counts: counts
+      };
+    });
+  }
+
+  function detailHtml(r) {
+    var d = SAT_DETAILS[r.name];
+    var src = '<div class="rd-src">频率资料来源：AMSAT 官方频率汇总（2026-07 更新）</div>';
+    if (!d) {
+      return '<div class="rd-empty">暂无该卫星的详细频率资料。可在 ' +
+        '<a href="https://db.satnogs.org/search/?q=' + encodeURIComponent(r.displayName) + '" target="_blank" rel="noopener">SatNOGS</a> ' +
+        (r.website ? '或 <a href="' + esc(r.website) + '" target="_blank" rel="noopener">AMSAT</a> ' : "") +
+        '查询。</div>';
+    }
+    function field(k, v) {
+      if (v == null || v === "") return "";
+      return '<div class="rd-field"><span class="rd-k">' + k + '</span><span class="rd-v">' + esc(v) + "</span></div>";
+    }
+    var grid = '<div class="rd-grid">' +
+      field("别名", d.aliases) + field("类型", d.type) +
+      field("上行频率", d.uplink) + field("下行频率", d.downlink) +
+      field("亚音 / CTCSS", d.tone) + "</div>";
+    var desc = d.desc ? '<div class="rd-desc">' + esc(d.desc) + "</div>" : "";
+    var links = '<div class="rd-links">' +
+      '<a href="https://db.satnogs.org/search/?q=' + encodeURIComponent((d.aliases || r.displayName).split("/")[0].trim()) + '" target="_blank" rel="noopener">SatNOGS 详情 ↗</a>' +
+      (r.website ? '<a href="' + esc(r.website) + '" target="_blank" rel="noopener">AMSAT 页面 ↗</a>' : "") +
+      "</div>";
+    return grid + desc + links + src;
+  }
+
+  function applyFilters() {
+    var q = el.search.value.trim().toLowerCase();
+    var mode = el.modeFilter.value;
+    var filtered = rows.filter(function (r) {
+      if (filter === "active" && !(r.statusKey === "active" || r.statusKey === "crew")) return false;
+      if (filter === "tlm" && r.statusKey !== "tlm") return false;
+      if (filter === "notheard" && r.statusKey !== "notheard") return false;
+      if (filter === "none" && r.statusKey !== "none") return false;
+      if (mode && r.mode !== mode) return false;
+      if (q) {
+        var d = SAT_DETAILS[r.name];
+        var hay = (r.displayName + " " + r.name + " " + r.mode + " " + (d ? d.aliases + " " + d.type : "")).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    filtered.sort(function (a, b) {
+      var ka = SORT_ORDER[a.statusKey] !== undefined ? SORT_ORDER[a.statusKey] : 9;
+      var kb = SORT_ORDER[b.statusKey] !== undefined ? SORT_ORDER[b.statusKey] : 9;
+      if (ka !== kb) return ka - kb;
+      if ((a.latestTime || "") !== (b.latestTime || "")) return (b.latestTime || "").localeCompare(a.latestTime || "");
+      return a.displayName.localeCompare(b.displayName);
+    });
+    renderList(filtered);
+  }
+
+  function renderList(list) {
+    if (!list.length) {
+      el.list.innerHTML = '<div class="empty-state">没有符合条件的卫星。试试清空搜索或切换状态筛选。</div>';
+      return;
+    }
+    el.list.innerHTML = list.map(function (r) {
+      var meta = r.status ? STATUS_META[r.status] : null;
+      var badgeCls = meta ? meta.cls : "st-none";
+      var badgeLabel = meta ? meta.label : "无报告";
+      var distParts = [];
+      var defs = [["Heard","H","d-h"],["Crew Active","Crew","d-c"],["Telemetry Only","TLM","d-t"],["Not Heard","N","d-n"]];
+      for (var i = 0; i < defs.length; i++) {
+        var c = r.counts[defs[i][0]] || 0;
+        if (c > 0) distParts.push('<span class="d ' + defs[i][2] + '">' + defs[i][1] + ' <b>' + c + "</b></span>");
+      }
+      var distHtml = distParts.length ? distParts.join("") : '<span class="empty">窗口内无报告</span>';
+      var timeHtml = r.latestTime
+        ? '<span class="ago">' + relativeTime(r.latestTime) + '</span><br><span title="' + esc(utcStr(r.latestTime)) + '">' + esc(utcStr(r.latestTime)) + "</span>"
+        : '<span class="empty">—</span>';
+      return '<div class="row">' +
+        '<div class="row-head">' +
+          '<span class="status-badge ' + badgeCls + '">' + esc(badgeLabel) + "</span>" +
+          '<div class="main">' +
+            '<div class="name-row"><span class="name">' + esc(r.displayName) + '</span>' +
+              '<span class="mode-tag">' + esc(r.mode) + "</span></div>" +
+            '<div class="dist">' + distHtml + "</div>" +
+          "</div>" +
+          '<div class="time">' + timeHtml + "</div>" +
+          '<span class="chev" title="展开频率详情"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>' +
+        "</div>" +
+        '<div class="row-detail">' + detailHtml(r) + "</div>" +
+      "</div>";
+    }).join("");
+  }
+
+  function renderStats() {
+    var n = rows.length, active = 0, tlm = 0, notheard = 0, none = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var k = rows[i].statusKey;
+      if (k === "active" || k === "crew") active++;
+      else if (k === "tlm") tlm++;
+      else if (k === "notheard") notheard++;
+      else none++;
+    }
+    document.getElementById("nTotal").textContent = n;
+    document.getElementById("nActive").textContent = active;
+    document.getElementById("nTlm").textContent = tlm;
+    document.getElementById("nNotHeard").textContent = notheard;
+    document.getElementById("nNone").textContent = none;
+    var pct = function (x) { return (n ? Math.round((x / n) * 100) : 0) + "%"; };
+    document.getElementById("bActive").style.width = pct(active);
+    document.getElementById("bTlm").style.width = pct(tlm);
+    document.getElementById("bNotHeard").style.width = pct(notheard);
+    document.getElementById("bNone").style.width = pct(none);
+  }
+
+  function populateModeFilter() {
+    var modes = [];
+    for (var i = 0; i < rows.length; i++) if (modes.indexOf(rows[i].mode) === -1) modes.push(rows[i].mode);
+    modes.sort();
+    var cur = el.modeFilter.value;
+    var html = '<option value="">全部模式</option>';
+    for (var i = 0; i < modes.length; i++) html += '<option value="' + esc(modes[i]) + '">' + esc(modes[i]) + "</option>";
+    el.modeFilter.innerHTML = html;
+    if (cur && modes.indexOf(cur) !== -1) el.modeFilter.value = cur;
+  }
+
+  function setLive(ok, msg) {
+    el.liveDot.className = "dot" + (ok ? "" : " err");
+    el.liveText.textContent = msg;
+  }
+
+  async function load() {
+    el.refreshBtn.disabled = true;
+    setLive(true, "更新中…");
+    try {
+      var res = await Promise.all([
+        fetch(API.catalog, { cache: "no-store" }),
+        fetch(API.summary(hours), { cache: "no-store" })
+      ]);
+      if (!res[0].ok) throw new Error("catalog " + res[0].status);
+      if (!res[1].ok) throw new Error("summary " + res[1].status);
+      var catalog = await res[0].json();
+      var summary = await res[1].json();
+      rows = mergeData((catalog.data || []), (summary.data || []));
+      populateModeFilter();
+      renderStats();
+      applyFilters();
+      el.banner.classList.remove("show");
+      el.banner.innerHTML = "";
+      setLive(true, "已更新 · " + new Date().toLocaleTimeString("zh-CN", { hour12: false }));
+    } catch (e) {
+      console.error(e);
+      setLive(false, "更新失败");
+      el.banner.classList.add("show");
+      el.banner.innerHTML = "无法从 AMSAT API 获取数据（" + esc(e.message || e) + "）。请检查网络后重试。" +
+        '<button onclick="window.__retry()">重试</button>';
+      if (!rows.length) el.list.innerHTML = '<div class="empty-state">数据加载失败，请点击“刷新”重试。</div>';
+    } finally {
+      el.refreshBtn.disabled = false;
+    }
+  }
+
+  /* ============ 天气预报（中央气象台 NMC） ============ */
+  function rainColor(mm) {
+    if (mm <= 0.01) return "#e5e7eb";
+    if (mm < 1) return "#93c5fd";
+    if (mm < 2.5) return "#60a5fa";
+    if (mm < 5) return "#3b82f6";
+    return "#1d4ed8";
+  }
+  function dayLabel(dateStr, idx) {
+    if (idx === 0) return "今天";
+    if (idx === 1) return "明天";
+    var d = new Date((dateStr || "") + "T00:00:00");
+    var w = isNaN(d.getTime()) ? "" : ["周日","周一","周二","周三","周四","周五","周六"][d.getDay()];
+    return w + " " + (dateStr || "").slice(5);
+  }
+
+  async function loadWeatherByCode(code, opt) {
+    opt = opt || {};
+    var gpsLat = opt.lat, gpsLon = opt.lon, label = opt.label;
+    el.wSum.textContent = "";
+    el.wChart.innerHTML = '<div class="spinner"></div>';
+    if (!code) {
+      el.wLoc.textContent = label || ("坐标 " + gpsLat.toFixed(3) + ", " + gpsLon.toFixed(3));
+      el.wNow.innerHTML = "";
+      el.wWarn.style.display = "none";
+      el.wChart.innerHTML = '<div class="empty-state">该位置暂无中央气象台 7 天预报数据。</div>';
+      loadHourly("", gpsLat, gpsLon);
+      return;
+    }
+    try {
+      var r = await fetch(API.nmc("/weather?stationid=" + encodeURIComponent(code)), { cache: "no-store" });
+      var d = await r.json();
+      if (!d || d.code !== 0 || !d.data) throw new Error("无数据");
+      var data = d.data;
+      var real = data.real || {};
+      var st = real.station || {};
+      var w = real.weather || {};
+      var wind = real.wind || {};
+      var warn = real.warn || {};
+      var ss = real.sunriseSunset || {};
+
+      el.wLoc.textContent = label || ((st.province || "") + " · " + (st.city || "") + " ｜ 更新于 " + (real.publish_time || "").slice(0, 16));
+
+      var nowParts = [];
+      if (w.temperature != null && w.temperature != 9999) nowParts.push('<span class="w-now-item"><b>' + w.temperature + "°C</b>" + esc(w.info || "") + "</span>");
+      if (w.humidity != null && w.humidity != 9999) nowParts.push('<span class="w-now-item">湿度 ' + w.humidity + "%</span>");
+      if (w.rain != null && w.rain != 9999) nowParts.push('<span class="w-now-item">当前降水 ' + w.rain + " mm</span>");
+      if (wind.direct && wind.direct !== "9999") nowParts.push('<span class="w-now-item">' + esc(wind.direct) + " " + esc(wind.power || "") + "</span>");
+      if (ss.sunrise && ss.sunset) nowParts.push('<span class="w-now-item">日出 ' + ss.sunrise.slice(11) + " · 日落 " + ss.sunset.slice(11) + "</span>");
+      el.wNow.innerHTML = nowParts.join("");
+
+      if (warn && warn.alert && warn.alert !== "9999") {
+        el.wWarn.style.display = "flex";
+        el.wWarn.innerHTML = "<span>⚠</span><span>" + esc(warn.alert) + (warn.issuecontent ? "：" + esc(warn.issuecontent.slice(0, 160)) : "") + "</span>";
+      } else {
+        el.wWarn.style.display = "none";
+        el.wWarn.innerHTML = "";
+      }
+
+      renderRain7(data.predict);
+      loadHourly(st.city || "", gpsLat, gpsLon);
+    } catch (e) {
+      console.error(e);
+      el.wChart.innerHTML = '<div class="empty-state">天气预报加载失败（' + esc(e.message || e) + "），请重试。</div>";
+    }
+  }
+
+  function renderRain7(predict) {
+    var det = (predict && predict.detail) || [];
+    if (!det.length) { el.wChart.innerHTML = '<div class="empty-state">暂无降水预报数据。</div>'; return; }
+    var maxP = 0, sum = 0;
+    var html = "";
+    for (var i = 0; i < det.length; i++) {
+      var d = det[i];
+      var p = parseFloat(d.precipitation) || 0;
+      sum += p; if (p > maxP) maxP = p;
+      var date = d.date || "";
+      var dayInfo = (d.day && d.day.weather && d.day.weather.info !== "9999") ? d.day.weather.info : "";
+      var nightInfo = (d.night && d.night.weather && d.night.weather.info !== "9999") ? d.night.weather.info : "";
+      var dayT = (d.day && d.day.weather) ? d.day.weather.temperature : "9999";
+      var nightT = (d.night && d.night.weather) ? d.night.weather.temperature : "9999";
+      var info = (dayInfo && nightInfo && dayInfo !== nightInfo) ? (dayInfo + "转" + nightInfo) : (dayInfo || nightInfo || "");
+      var tmp = (dayT !== "9999" && nightT !== "9999") ? (dayT + "/" + nightT + "°C") : (dayT !== "9999" ? dayT + "°C" : (nightT !== "9999" ? nightT + "°C" : ""));
+      var height = p <= 0 ? 2 : Math.min(104, 12 + p * 16);
+      html += '<div class="w-col" title="' + date + " · " + esc(info) + " " + esc(tmp) + " · 降水 " + p.toFixed(1) + ' mm">' +
+        '<span class="w-mm">' + (p > 0 ? p.toFixed(1) : "") + '</span>' +
+        '<div class="w-bar" style="height:' + height + 'px;background:' + rainColor(p) + '"></div>' +
+        '<span class="w-day">' + dayLabel(date, i) + "</span>" +
+        '<span class="w-dayinfo">' + esc(info || "—") + "</span>" +
+      "</div>";
+    }
+    el.wChart.innerHTML = html;
+    el.wSum.textContent = "未来 7 天累计降水 " + sum.toFixed(1) + " mm" + (maxP > 0 ? " · 单日最大 " + maxP.toFixed(1) + " mm" : " · 无降水");
+  }
+
+  async function loadHourly(cityName, gpsLat, gpsLon) {
+    el.wChartHourly.innerHTML = '<div class="spinner"></div>';
+    try {
+      var lat = gpsLat, lon = gpsLon;
+      if (lat == null || lon == null) {
+        var gr = await fetch("https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(cityName) + "&format=json&limit=1&accept-language=zh", { cache: "no-store" });
+        var gd = await gr.json();
+        if (!gd || !gd.length) throw new Error("未定位到城市");
+        lat = parseFloat(gd[0].lat); lon = parseFloat(gd[0].lon);
+      }
+      var wr = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&hourly=precipitation,precipitation_probability&forecast_days=2&timezone=auto", { cache: "no-store" });
+      var wd = await wr.json();
+      if (!wd.hourly || !wd.hourly.time) throw new Error("无逐小时数据");
+      var now = new Date().getTime();
+      var start = 0;
+      for (var i = 0; i < wd.hourly.time.length; i++) {
+        if (new Date(wd.hourly.time[i]).getTime() >= now - 3600000) { start = i; break; }
+      }
+      var N = 24;
+      renderHourly(wd.hourly.time.slice(start, start + N), wd.hourly.precipitation.slice(start, start + N), wd.hourly.precipitation_probability.slice(start, start + N));
+    } catch (e) {
+      console.error(e);
+      el.wChartHourly.innerHTML = '<div class="empty-state">逐小时降水加载失败（' + esc(e.message || e) + "），可切换城市重试。</div>";
+    }
+  }
+
+  function smoothPath(pts) {
+    if (pts.length < 2) return "";
+    var d = "M " + pts[0][0].toFixed(1) + " " + pts[0][1].toFixed(1);
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = i > 0 ? pts[i - 1] : pts[i];
+      var p1 = pts[i];
+      var p2 = pts[i + 1];
+      var p3 = i < pts.length - 2 ? pts[i + 2] : p2;
+      var c1x = p1[0] + (p2[0] - p0[0]) / 6;
+      var c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      var c2x = p2[0] - (p3[0] - p1[0]) / 6;
+      var c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += " C " + c1x.toFixed(1) + " " + c1y.toFixed(1) + " " + c2x.toFixed(1) + " " + c2y.toFixed(1) + " " + p2[0].toFixed(1) + " " + p2[1].toFixed(1);
+    }
+    return d;
+  }
+
+  function renderHourly(times, prec, prob) {
+    lastHourly = { times: times, prec: prec, prob: prob };
+    var N = times.length;
+    if (!N) { el.wChartHourly.innerHTML = '<div class="empty-state">暂无逐小时数据。</div>'; return; }
+    var W = Math.max(340, el.wChartHourly.clientWidth || 980);
+    var H = 176;
+    var padL = 38, padR = 10, padT = 16, padB = 26;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+    var maxP = 0, peakIdx = 0, rainSum = 0;
+    var pts = [];
+    for (var i = 0; i < N; i++) {
+      var pv = prob[i] || 0;
+      pts.push([padL + (N > 1 ? (i / (N - 1)) * plotW : 0), padT + (1 - pv / 100) * plotH]);
+      if (pv > maxP) { maxP = pv; peakIdx = i; }
+      rainSum += prec[i] || 0;
+    }
+    var grid = "";
+    var gvs = [0, 25, 50, 75, 100];
+    for (var g = 0; g < gvs.length; g++) {
+      var gy = padT + (1 - gvs[g] / 100) * plotH;
+      grid += '<line x1="' + padL.toFixed(1) + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padR).toFixed(1) + '" y2="' + gy.toFixed(1) + '" class="wgrid"></line>';
+      grid += '<text x="' + (padL - 6) + '" y="' + (gy + 3.5).toFixed(1) + '" class="wylab">' + gvs[g] + "%</text>";
+    }
+    var line = smoothPath(pts);
+    var area = line + " L " + pts[N - 1][0].toFixed(1) + " " + (padT + plotH).toFixed(1) + " L " + pts[0][0].toFixed(1) + " " + (padT + plotH).toFixed(1) + " Z";
+    var dots = "";
+    for (var i = 0; i < N; i++) {
+      dots += '<circle cx="' + pts[i][0].toFixed(1) + '" cy="' + pts[i][1].toFixed(1) + '" r="3.4"' + (i === peakIdx && maxP > 0 ? ' class="wdot wpeak"' : ' class="wdot"') + '><title>' + (times[i] || "").slice(11, 16) + " · 降水概率 " + (prob[i] || 0) + "% · 降水量 " + (prec[i] || 0).toFixed(1) + " mm</title></circle>";
+    }
+    var labels = "";
+    for (var i = 0; i < N; i++) {
+      var hh = parseInt((times[i] || "").slice(11, 13), 10);
+      if (isNaN(hh)) hh = 0;
+      if (hh % 3 === 0 || i === 0 || i === N - 1) {
+        labels += '<text x="' + pts[i][0].toFixed(1) + '" y="' + (H - 7) + '" class="wxl">' + hh + "时</text>";
+      }
+    }
+    var peakLab = maxP > 0 ? '<text x="' + pts[peakIdx][0].toFixed(1) + '" y="' + (pts[peakIdx][1] - 9).toFixed(1) + '" class="wpeak" text-anchor="middle">' + maxP + "%</text>" : "";
+    el.wChartHourly.innerHTML =
+      '<svg viewBox="0 0 ' + W.toFixed(0) + ' ' + H + '" class="wsvg" style="width:100%;height:100%">' +
+      '<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#3b82f6" stop-opacity="0.32"></stop>' +
+      '<stop offset="100%" stop-color="#3b82f6" stop-opacity="0.02"></stop>' +
+      '</linearGradient></defs>' +
+      grid + '<path d="' + area + '" fill="url(#wg)" stroke="none"></path>' +
+      '<path d="' + line + '" fill="none" stroke="#2563eb" stroke-width="2.6" stroke-linecap="round" class="wline"></path>' +
+      dots + peakLab + labels +
+      "</svg>";
+    el.wSum.textContent = "24 小时降水概率峰值 " + maxP + "%（" + (times[peakIdx] || "").slice(11, 16) + "） · 累计降水 " + rainSum.toFixed(1) + " mm";
+  }
+
+  async function geocodeAndLoad() {
+    var q = el.citySearch.value.trim();
+    if (!q) return;
+    var exact = null, starts = [], contains = [];
+    for (var name in CITY) {
+      if (name === q) { exact = { name: name, code: CITY[name][0], province: CITY[name][1] }; break; }
+      else if (name.indexOf(q) === 0) starts.push({ name: name, code: CITY[name][0], province: CITY[name][1] });
+      else if (name.indexOf(q) !== -1) contains.push({ name: name, code: CITY[name][0], province: CITY[name][1] });
+    }
+    var m = exact || starts[0] || contains[0];
+    if (!m) { el.wLoc.textContent = "未找到城市：" + q; return; }
+    el.wLoc.textContent = "加载 " + m.name + "…";
+    loadWeatherByCode(m.code);
+  }
+
+  function geoLocateByIP() {
+    el.wLoc.textContent = "定位中…";
+    fetch(API.nmc("/position"), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.code) loadWeatherByCode(d.code);
+      else el.wLoc.textContent = "定位失败，可搜索城市";
+    }).catch(function () { el.wLoc.textContent = "定位失败，可搜索城市"; });
+  }
+
+  function geoLocate() {
+    if (!navigator.geolocation) { geoLocateByIP(); return; }
+    el.wLoc.textContent = "定位中…";
+    navigator.geolocation.getCurrentPosition(async function (pos) {
+      var lat = pos.coords.latitude, lon = pos.coords.longitude;
+      var label = "", code = null;
+      try {
+        var rr = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=zh", { cache: "no-store" });
+        var rd = await rr.json();
+        var city = rd.city || rd.locality || "";
+        if (city) {
+          label = city;
+          var norm = city.replace(/市$/, "");
+          var m = CITY[norm] || CITY[city];
+          if (m) code = m[0];
+        }
+      } catch (e) {}
+      if (code) { loadWeatherByCode(code, { lat: lat, lon: lon, label: label }); return; }
+      try {
+        var ipr = await fetch(API.nmc("/position"), { cache: "no-store" });
+        var ipd = await ipr.json();
+        if (ipd && ipd.code) { loadWeatherByCode(ipd.code, { lat: lat, lon: lon, label: label || ipd.city }); return; }
+      } catch (e) {}
+      loadWeatherByCode(null, { lat: lat, lon: lon, label: label || "我的位置" });
+    }, function () {
+      geoLocateByIP();
+    }, { timeout: 10000, maximumAge: 300000 });
+  }
+
+  function tickClock() {
+    el.utcClock.textContent = new Date().toISOString().slice(11, 19) + " UTC";
+  }
+
+  /* ============ events ============ */
+  el.search.addEventListener("input", applyFilters);
+  el.modeFilter.addEventListener("change", applyFilters);
+  el.window.addEventListener("change", function () { hours = parseInt(el.window.value, 10) || 24; load(); });
+
+  el.statusPills.addEventListener("click", function (ev) {
+    var p = ev.target.closest(".pill");
+    if (!p) return;
+    filter = p.getAttribute("data-f");
+    var ch = el.statusPills.children;
+    for (var i = 0; i < ch.length; i++) ch[i].classList.toggle("on", ch[i] === p);
+    applyFilters();
+  });
+
+  el.list.addEventListener("click", function (ev) {
+    var head = ev.target.closest(".row-head");
+    if (!head) return;
+    var row = head.closest(".row");
+    if (!row) return;
+    row.classList.toggle("open");
+  });
+
+  el.refreshBtn.addEventListener("click", load);
+  el.autoRefresh.addEventListener("change", function () { autoOn = el.autoRefresh.checked; schedule(); });
+  el.cityBtn.addEventListener("click", geocodeAndLoad);
+  el.citySearch.addEventListener("keydown", function (ev) { if (ev.key === "Enter") geocodeAndLoad(); });
+  el.geoBtn.addEventListener("click", geoLocate);
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (lastHourly) renderHourly(lastHourly.times, lastHourly.prec, lastHourly.prob);
+    }, 200);
+  });
+
+  function schedule() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    if (autoOn) timer = setInterval(load, 60000);
+  }
+
+  window.__retry = load;
+
+  /* ============ boot ============ */
+  tickClock();
+  setInterval(tickClock, 1000);
+  schedule();
+  load();
+  var bj = CITY["北京"];
+  loadWeatherByCode(bj ? bj[0] : "Wqsps");
+})();
+</script>
+</body>
+</html>
