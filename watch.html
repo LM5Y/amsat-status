@@ -70,6 +70,27 @@
   .det .d { color: #9ca3af; font-size: 12px; line-height: 1.7; }
   .empty { text-align: center; color: #6b7280; font-size: 13px; padding-top: 40px; }
   .loading { text-align: center; color: #6b7280; font-size: 14px; padding-top: 60px; }
+  /* ---- 通联日志 ---- */
+  .logchip { color: #9cc0ff; }
+  .logform { flex: 0 0 auto; }
+  .logform input[type=text] { width: 100%; background: #121212; border: 1px solid #222; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 8px; }
+  .wchips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .wchip { font-size: 12.5px; padding: 7px 11px; border-radius: 9px; background: #121212; border: 1px solid #222; color: #8f9cb8; }
+  .wchip.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .wfreq { margin-bottom: 8px; max-height: 78px; overflow-y: auto; scrollbar-width: none; }
+  .wfreq::-webkit-scrollbar { display: none; }
+  .fsat { display: inline-flex; font-size: 11.5px; padding: 6px 9px; border-radius: 8px; background: #101316; border: 1px solid #1d2430; color: #cbd5e1; margin: 2px; }
+  .fsat.on { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+  .wfreq input[type=text] { width: 100%; background: #121212; border: 1px solid #222; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+  .wsubmit { width: 100%; background: #2563eb; border: none; color: #fff; font-size: 15px; font-weight: 700; border-radius: 12px; padding: 12px; margin-top: 4px; }
+  .wmsg { text-align: center; font-size: 12px; color: #2fca7d; min-height: 16px; margin-top: 6px; }
+  .loglist { flex: 1 1 auto; overflow-y: auto; scrollbar-width: none; margin-top: 6px; min-height: 0; }
+  .loglist::-webkit-scrollbar { display: none; }
+  .lrow { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid #151515; font-size: 12px; }
+  .lrow .c { font-weight: 700; }
+  .lrow .m { color: #9cc0ff; font-size: 11px; }
+  .lrow .f { color: #8f9cb8; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lrow .t { margin-left: auto; color: #4b5563; font-size: 10px; }
 </style>
 </head>
 <body>
@@ -140,6 +161,29 @@
 <div class="page hide" id="pd">
   <div class="phead"><span class="back" data-go="p3">‹</span><span id="detName">卫星</span></div>
   <div class="det" id="detBody"></div>
+</div>
+
+<!-- 通联日志 -->
+<div class="page hide" id="p4">
+  <div class="phead"><span class="back" data-go="p2">‹</span>通联日志</div>
+  <div class="logform">
+    <input type="text" id="wCall" placeholder="对方呼号" autocomplete="off">
+    <div class="wchips" id="wMode">
+      <span class="wchip on" data-m="FM卫星">FM卫星</span>
+      <span class="wchip" data-m="本地FM">本地FM</span>
+      <span class="wchip" data-m="FT8">FT8</span>
+    </div>
+    <div class="wfreq" id="wFreq"></div>
+    <div class="wchips" id="wTime">
+      <span class="wchip on" data-t="utc">当前UTC</span>
+      <span class="wchip" data-t="bj">北京时间</span>
+      <span class="wchip" data-t="manual">自填</span>
+    </div>
+    <input type="text" id="wTimeManual" placeholder="2026-08-15 18:30" style="display:none" autocomplete="off">
+    <button class="wsubmit" id="wLogAdd">记 录</button>
+    <div class="wmsg" id="wLogMsg"></div>
+  </div>
+  <div class="loglist" id="wLogList"></div>
 </div>
 
 <script>
@@ -694,7 +738,7 @@
       var cnt = rows.filter(function (r) { return r.k !== "x" && g.test(r.mode); }).length;
       html += '<div class="mode-chip" data-mode="' + g.name + '"><span class="mdot ' + g.cls + '"></span><span>' + g.name + '</span><span class="cnt">' + cnt + " 颗</span></div>";
     });
-    document.getElementById("modes").innerHTML = html || '<div class="empty">暂无数据</div>';
+    document.getElementById("modes").innerHTML = (html || '<div class="empty">暂无数据</div>') + '<div class="mode-chip logchip"><span>📒 通联日志</span></div>';
   }
 
   function renderModeList() {
@@ -741,6 +785,8 @@
   /* 事件 */
   document.getElementById("p1").addEventListener("click", function () { show("p2"); });
   document.getElementById("modes").addEventListener("click", function (ev) {
+    var lc = ev.target.closest(".logchip");
+    if (lc) { show("p4"); renderWFreq(); renderWLogs(); return; }
     var c = ev.target.closest(".mode-chip");
     if (!c) return;
     curMode = c.getAttribute("data-mode");
@@ -756,6 +802,109 @@
   for (var i = 0; i < backs.length; i++) {
     backs[i].addEventListener("click", function () { show(this.getAttribute("data-go")); });
   }
+
+  /* ===== 通联日志 ===== */
+  var wSatSel = "";
+  function renderWFreq() {
+    var mode = document.querySelector("#wMode .wchip.on").getAttribute("data-m");
+    var box = document.getElementById("wFreq");
+    if (mode === "FM卫星") {
+      var sats = rows.filter(function (r) { return r.mode === "FM"; });
+      if (!wSatSel && sats.length) wSatSel = sats[0].disp;
+      box.innerHTML = sats.map(function (r) {
+        var d = SAT_DETAILS[r.name];
+        return '<span class="fsat' + (r.disp === wSatSel ? " on" : "") + '" data-sat="' + esc(r.disp) + '">' + esc(r.disp) + (d && d.downlink ? " " + esc(d.downlink) : "") + "</span>";
+      }).join("");
+    } else {
+      box.innerHTML = '<input type="text" id="wFreqTxt" placeholder="频率 MHz，如 145.500" autocomplete="off">';
+    }
+  }
+  function wTimeVal() {
+    var mode = document.querySelector("#wTime .wchip.on").getAttribute("data-t");
+    var d = new Date();
+    if (mode === "utc") return { time: d.toISOString(), text: d.toISOString().replace("T", " ").slice(0, 19) + " UTC" };
+    if (mode === "bj") { var bj = new Date(d.getTime() + 8 * 3600000); return { time: d.toISOString(), text: bj.toISOString().replace("T", " ").slice(0, 19) + " 北京时间" }; }
+    var mv = document.getElementById("wTimeManual").value.trim();
+    if (!mv) return { time: d.toISOString(), text: "（未填）" };
+    return { time: "", text: mv };
+  }
+  function getLogs() {
+    var local = [];
+    try { local = JSON.parse(localStorage.getItem("amsat_logs") || "[]"); } catch (e) {}
+    return fetch("/api/logs", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (serverLogs) {
+      if (serverLogs) {
+        var ids = {};
+        serverLogs.forEach(function (l) { ids[l.id] = 1; });
+        return serverLogs.concat(local.filter(function (l) { return l.local && !ids[l.id]; }));
+      }
+      return local;
+    }).catch(function () { return local; });
+  }
+  function addLogEntry(entry) {
+    entry.id = entry.id || "L-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    return fetch("/api/logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(entry) }).then(function (r) {
+      if (r.ok) return r.json();
+      throw new Error("server");
+    }).catch(function () {
+      entry.local = true;
+      var local = [];
+      try { local = JSON.parse(localStorage.getItem("amsat_logs") || "[]"); } catch (e) {}
+      local.unshift(entry);
+      try { localStorage.setItem("amsat_logs", JSON.stringify(local)); } catch (e) {}
+      return entry;
+    });
+  }
+  async function wAddLog() {
+    var msg = document.getElementById("wLogMsg");
+    var call = document.getElementById("wCall").value.trim();
+    if (!call) { msg.textContent = "请填写呼号"; return; }
+    var mode = document.querySelector("#wMode .wchip.on").getAttribute("data-m");
+    var satellite = "", frequency = "";
+    if (mode === "FM卫星") {
+      satellite = wSatSel;
+      var hit = rows.filter(function (r) { return r.mode === "FM" && r.disp === wSatSel; })[0];
+      frequency = (hit && SAT_DETAILS[hit.name] && SAT_DETAILS[hit.name].downlink) || "";
+    } else {
+      var fv = document.getElementById("wFreqTxt").value.trim();
+      frequency = fv ? fv + " MHz" : "";
+    }
+    var tv = wTimeVal();
+    await addLogEntry({ callsign: call, mode: mode, satellite: satellite, frequency: frequency, time: tv.time, timeText: tv.text, src: "手表" });
+    document.getElementById("wCall").value = "";
+    msg.textContent = "✓ 已记录";
+    renderWLogs();
+    setTimeout(function () { msg.textContent = ""; }, 2000);
+  }
+  async function renderWLogs() {
+    var logs = await getLogs();
+    var box = document.getElementById("wLogList");
+    if (!logs.length) { box.innerHTML = '<div class="empty">暂无记录</div>'; return; }
+    box.innerHTML = logs.slice(0, 8).map(function (l) {
+      var f = l.satellite || l.frequency || "";
+      return '<div class="lrow"><span class="c">' + esc(l.callsign || "—") + '</span><span class="m">' + esc(l.mode || "") + '</span><span class="f">' + esc(f) + '</span><span class="t">' + esc((l.timeText || "").slice(5, 19)) + "</span></div>";
+    }).join("");
+  }
+  document.getElementById("wMode").addEventListener("click", function (ev) {
+    var c = ev.target.closest(".wchip");
+    if (!c) return;
+    var chips = document.querySelectorAll("#wMode .wchip");
+    for (var i = 0; i < chips.length; i++) chips[i].classList.toggle("on", chips[i] === c);
+    renderWFreq();
+  });
+  document.getElementById("wFreq").addEventListener("click", function (ev) {
+    var f = ev.target.closest(".fsat");
+    if (!f) return;
+    wSatSel = f.getAttribute("data-sat");
+    renderWFreq();
+  });
+  document.getElementById("wTime").addEventListener("click", function (ev) {
+    var c = ev.target.closest(".wchip");
+    if (!c) return;
+    var chips = document.querySelectorAll("#wTime .wchip");
+    for (var i = 0; i < chips.length; i++) chips[i].classList.toggle("on", chips[i] === c);
+    document.getElementById("wTimeManual").style.display = c.getAttribute("data-t") === "manual" ? "block" : "none";
+  });
+  document.getElementById("wLogAdd").addEventListener("click", wAddLog);
 
   tick();
   setInterval(tick, 1000);
