@@ -72,6 +72,7 @@
   .loading { text-align: center; color: #6b7280; font-size: 14px; padding-top: 60px; }
   /* ---- 通联日志 ---- */
   .logchip { color: #9cc0ff; }
+  .logbtn { margin-left: auto; font-size: 12.5px; font-weight: 700; color: #9cc0ff; cursor: pointer; padding: 5px 9px; border: 1px solid #1f2b47; border-radius: 10px; background: #101316; }
   .logform { flex: 0 0 auto; }
   .logform input[type=text] { width: 100%; background: #121212; border: 1px solid #222; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 8px; }
   .wchips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -116,7 +117,7 @@
 
 <!-- 统计 + 模式 -->
 <div class="page hide" id="p2">
-  <div class="phead"><span class="back" data-go="p1">‹</span>卫星统计</div>
+  <div class="phead"><span class="back" data-go="p1">‹</span>卫星统计<span class="logbtn" id="wLogBtn">📒 日志</span></div>
   <div class="donuts">
     <div class="dcard">
       <div class="dring">
@@ -905,6 +906,7 @@
     document.getElementById("wTimeManual").style.display = c.getAttribute("data-t") === "manual" ? "block" : "none";
   });
   document.getElementById("wLogAdd").addEventListener("click", wAddLog);
+  document.getElementById("wLogBtn").addEventListener("click", function () { show("p4"); renderWFreq(); renderWLogs(); });
 
   tick();
   setInterval(tick, 1000);
