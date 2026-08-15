@@ -7,58 +7,585 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { background: #000; color: #e8eef9; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  body {
-    width: 466px; height: 466px; margin: 0 auto;
-    overflow: hidden; display: flex; flex-direction: column;
-    user-select: none; -webkit-user-select: none;
-  }
-  .wrap { flex: 1; display: flex; flex-direction: column; padding: 56px 44px 46px; min-height: 0; }
+  body { width: 466px; height: 466px; margin: 0 auto; overflow: hidden; position: relative; user-select: none; -webkit-user-select: none; }
+  .page { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 56px 46px 42px; min-height: 0; }
+  .page.hide { display: none; }
 
-  header { text-align: center; flex: 0 0 auto; }
-  header .t { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
-  header .s { font-size: 14px; color: #8f9cb8; margin-top: 4px; }
-  header .s b { color: #2fca7d; font-size: 16px; }
+  /* ---- 首页 ---- */
+  #p1 { align-items: center; text-align: center; justify-content: space-between; }
+  .brands { display: flex; align-items: center; gap: 10px; }
+  .brand { display: flex; align-items: center; gap: 5px; }
+  .brand img { height: 21px; width: auto; }
+  .brand span { font-size: 13px; font-weight: 800; color: #fff; }
+  .brand.amsat span { color: #1d4ed8; letter-spacing: 1px; }
+  .sep { width: 1px; height: 19px; background: #2a2a2a; }
+  .utc { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 2px; }
+  .utc-lbl { font-size: 12px; color: #8f9cb8; letter-spacing: 5px; margin-top: 1px; }
+  .meta { font-size: 12px; color: #8f9cb8; line-height: 1.8; }
+  .meta .ok { color: #2fca7d; }
+  .meta .err { color: #ff6262; }
+  .hint { font-size: 11px; color: #5a6577; }
+  .copy { font-size: 9px; color: #3f4858; }
 
-  #list { flex: 1 1 auto; overflow-y: auto; min-height: 0; margin: 4px -6px 0 0; padding-right: 6px; scrollbar-width: none; }
-  #list::-webkit-scrollbar { display: none; }
+  /* ---- 公共头 ---- */
+  .phead { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; flex: 0 0 auto; }
+  .back { font-size: 24px; cursor: pointer; color: #9cc0ff; line-height: 1; padding: 2px 8px; }
 
-  .row { display: flex; align-items: center; gap: 9px; padding: 7px 2px; border-bottom: 1px solid #151515; }
+  /* ---- 统计 + 模式 ---- */
+  .donuts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; margin-top: 10px; flex: 0 0 auto; }
+  .ditem { position: relative; width: 100%; height: 92px; display: flex; align-items: center; justify-content: center; }
+  .ditem svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .dcnt { position: relative; font-size: 17px; font-weight: 700; z-index: 1; }
+  .dlbl { position: absolute; bottom: -2px; left: 0; right: 0; text-align: center; font-size: 10px; color: #8f9cb8; }
+  .mode-title { font-size: 12px; color: #8f9cb8; margin-top: 14px; flex: 0 0 auto; }
+  .modes { flex: 1 1 auto; overflow-y: auto; margin-top: 6px; scrollbar-width: none; min-height: 0; }
+  .modes::-webkit-scrollbar { display: none; }
+  .mode-chip { display: flex; justify-content: space-between; align-items: center; padding: 9px 13px; font-size: 13.5px; border-radius: 10px; background: #121212; border: 1px solid #1f1f1f; margin-bottom: 7px; }
+  .mode-chip .cnt { color: #9cc0ff; font-size: 11.5px; }
+
+  /* ---- 列表 / 详情 ---- */
+  .list { flex: 1 1 auto; overflow-y: auto; margin-top: 8px; scrollbar-width: none; min-height: 0; }
+  .list::-webkit-scrollbar { display: none; }
+  .row { display: flex; align-items: center; gap: 9px; padding: 8px 2px; border-bottom: 1px solid #151515; cursor: pointer; }
   .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
   .dot.a { background: #2fca7d; box-shadow: 0 0 7px rgba(47,202,125,.8); }
   .dot.t { background: #f5a623; }
   .dot.n { background: #ff6262; }
-  .dot.x { background: #3d3d3d; }
-  .nm { flex: 1 1 auto; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .st { flex: 0 0 auto; font-size: 12px; padding: 1px 8px; border-radius: 8px; }
+  .nm { flex: 1 1 auto; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st { flex: 0 0 auto; font-size: 11.5px; padding: 1px 7px; border-radius: 8px; }
   .st.a { color: #2fca7d; background: rgba(47,202,125,.13); }
   .st.t { color: #f5a623; background: rgba(245,166,35,.13); }
   .st.n { color: #ff6262; background: rgba(255,98,98,.13); }
-  .st.x { color: #7d8aa0; background: rgba(125,138,160,.13); }
-  .tm { flex: 0 0 auto; font-size: 11px; color: #6b7280; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
-
-  footer { flex: 0 0 auto; text-align: center; font-size: 11px; color: #4b5563; margin-top: 6px; }
+  .tm { flex: 0 0 auto; font-size: 10.5px; color: #6b7280; min-width: 40px; text-align: right; }
+  .det { flex: 1 1 auto; overflow-y: auto; margin-top: 8px; scrollbar-width: none; min-height: 0; }
+  .det .f { display: flex; gap: 8px; margin-bottom: 10px; align-items: baseline; }
+  .det .k { flex: 0 0 66px; color: #8f9cb8; font-size: 12px; }
+  .det .v { color: #fff; font-size: 13px; font-weight: 600; }
+  .det .d { color: #9ca3af; font-size: 12px; line-height: 1.7; }
+  .empty { text-align: center; color: #6b7280; font-size: 13px; padding-top: 40px; }
   .loading { text-align: center; color: #6b7280; font-size: 14px; padding-top: 60px; }
-  .err { text-align: center; color: #ff6262; font-size: 13px; padding-top: 60px; line-height: 1.6; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="t">🛰️ 卫星状态</div>
-    <div class="s" id="sum">加载中…</div>
-  </header>
-  <div id="list"><div class="loading">加载中…</div></div>
-  <footer id="upd"></footer>
+
+<!-- 首页 -->
+<div class="page" id="p1">
+  <div class="brands">
+    <div class="brand"><img src="ds_whale.png" alt="DeepSeek"><span>DeepSeek</span></div>
+    <span class="sep"></span>
+    <div class="brand amsat"><img src="amsat_logo.png" alt="AMSAT"><span>AMSAT</span></div>
+  </div>
+  <div>
+    <div class="utc" id="utcTime">--:--:--</div>
+    <div class="utc-lbl">UTC</div>
+  </div>
+  <div class="meta">
+    <div id="updStatus">加载中…</div>
+    <div id="updTime">--</div>
+  </div>
+  <div class="hint">轻触进入 →</div>
+  <div class="copy">© 2026 BA4SCO. All Rights Reserved.</div>
 </div>
+
+<!-- 统计 + 模式 -->
+<div class="page hide" id="p2">
+  <div class="phead"><span class="back" data-go="p1">‹</span>卫星统计</div>
+  <div class="donuts">
+    <div class="ditem">
+      <svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="#1c1c1c" stroke-width="8"/><circle class="rv" id="rvTotal" cx="48" cy="48" r="40" fill="none" stroke="#4f8cff" stroke-width="8" stroke-linecap="round" transform="rotate(-90 48 48)"/></svg>
+      <div class="dcnt" id="cntTotal">0</div><div class="dlbl">卫星总数</div>
+    </div>
+    <div class="ditem">
+      <svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="#1c1c1c" stroke-width="8"/><circle class="rv" id="rvActive" cx="48" cy="48" r="40" fill="none" stroke="#2fca7d" stroke-width="8" stroke-linecap="round" transform="rotate(-90 48 48)"/></svg>
+      <div class="dcnt" id="cntActive">0</div><div class="dlbl">活跃</div>
+    </div>
+    <div class="ditem">
+      <svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="#1c1c1c" stroke-width="8"/><circle class="rv" id="rvTlm" cx="48" cy="48" r="40" fill="none" stroke="#f5a623" stroke-width="8" stroke-linecap="round" transform="rotate(-90 48 48)"/></svg>
+      <div class="dcnt" id="cntTlm">0</div><div class="dlbl">仅遥测</div>
+    </div>
+    <div class="ditem">
+      <svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="#1c1c1c" stroke-width="8"/><circle class="rv" id="rvNot" cx="48" cy="48" r="40" fill="none" stroke="#ff6262" stroke-width="8" stroke-linecap="round" transform="rotate(-90 48 48)"/></svg>
+      <div class="dcnt" id="cntNot">0</div><div class="dlbl">未收到</div>
+    </div>
+  </div>
+  <div class="mode-title">模式选择</div>
+  <div class="modes" id="modes"><div class="loading">加载中…</div></div>
+</div>
+
+<!-- 模式卫星列表 -->
+<div class="page hide" id="p3">
+  <div class="phead"><span class="back" data-go="p2">‹</span><span id="modeTitle">模式</span></div>
+  <div class="list" id="modeList"></div>
+</div>
+
+<!-- 卫星详情 -->
+<div class="page hide" id="pd">
+  <div class="phead"><span class="back" data-go="p3">‹</span><span id="detName">卫星</span></div>
+  <div class="det" id="detBody"></div>
+</div>
+
 <script>
+    var SAT_DETAILS = {
+    /* ---- FM 语音中继 ---- */
+    "SO-50_[FM]": {
+      aliases: "SaudiSat-1C（沙特 1C）",
+      type: "FM 语音中继",
+      uplink: "145.850 MHz",
+      downlink: "436.795 MHz",
+      tone: "上行 CTCSS 67.0 Hz；激活需 74.4 Hz",
+      desc: "全球最常用的 FM 语音中继之一。发射前需用 74.4 Hz 亚音发约 2 秒载波，激活 10 分钟定时器后方可通联。"
+    },
+    "AO-91_[FM]": {
+      aliases: "RadFxSat / Fox-1B",
+      type: "FM 语音中继",
+      uplink: "435.250 MHz",
+      downlink: "145.960 MHz",
+      tone: "上行 CTCSS 67.0 Hz",
+      desc: "福克斯 1B（范德堡大学 RadFxSat 载荷）。因电池老化，请勿在卫星进入阴影区时尝试通联。"
+    },
+    "AO-123_[FM]": {
+      aliases: "ASRTU-1（中俄高校 ASRTU-1）",
+      type: "FM 语音中继",
+      uplink: "145.850 MHz",
+      downlink: "435.400 MHz",
+      tone: "上行 CTCSS 67.0 Hz",
+      desc: "哈尔滨工业大学与 ASRTU 联盟研制，2024 年发射，FM 转发器已进入连续服务。"
+    },
+    "CAS-3H_[FM]": {
+      aliases: "LilacSat-2（紫丁香二号）",
+      type: "FM 语音中继",
+      uplink: "144.350 MHz",
+      downlink: "437.200 MHz",
+      tone: "无（FM 转发器）",
+      desc: "哈工大紫丁香二号。FM 转发器无固定时间表，关闭时 437.200 MHz 有遥测信标。"
+    },
+    "IO-86_[FM]": {
+      aliases: "LAPAN-A2（印度尼西亚）",
+      type: "FM 语音中继",
+      uplink: "145.880 MHz",
+      downlink: "435.880 MHz",
+      tone: "上行 CTCSS 88.5 Hz",
+      desc: "印尼 LAPAN-A2 卫星，低倾角轨道（覆盖约 ±30° 纬度），FM 语音中继按计划激活。"
+    },
+    "ISS_[FM]": {
+      aliases: "国际空间站 / ISS 跨段中继",
+      type: "FM 语音中继",
+      uplink: "145.990 MHz",
+      downlink: "437.800 MHz",
+      tone: "上行 CTCSS 67.0 Hz",
+      desc: "国际空间站 FM 跨段中继，覆盖范围最广的中继之一。开启状态以 ARISS / AMSAT 状态为准。"
+    },
+    "PO-101_[FM]": {
+      aliases: "Diwata-2（菲律宾）",
+      type: "FM 语音中继",
+      uplink: "437.500 MHz",
+      downlink: "145.900 MHz",
+      tone: "上行 CTCSS 141.3 Hz",
+      desc: "菲律宾 Diwata-2 卫星，FM 转发器按计划激活，卫星状态欠佳。"
+    },
+    "RS95S_[FM]": {
+      aliases: "QMR-KWT-2（科威特）",
+      type: "FM 语音中继",
+      uplink: "145.920 MHz",
+      downlink: "436.950 MHz",
+      tone: "上行 CTCSS 67.0 Hz",
+      desc: "科威特 QMR-KWT-2，FM 转发器测试中，同时支持 SSTV 图像下传。"
+    },
+
+    /* ---- 线性转发器 ---- */
+    "AO-7_[U/v]": {
+      aliases: "OSCAR-7（1974 年发射）",
+      type: "线性转发器（模式 B）",
+      uplink: "432.125–432.175 MHz（LSB）",
+      downlink: "145.925–145.975 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "1974 年发射的传奇卫星，至今仍在工作。模式 B 为反转线性转发器，仅在日照时工作。"
+    },
+    "AO-7_[V/a]": {
+      aliases: "OSCAR-7（1974 年发射）",
+      type: "线性转发器（模式 A）",
+      uplink: "145.850–145.950 MHz（USB）",
+      downlink: "29.400–29.500 MHz（USB）",
+      tone: "无（SSB/CW 非反转转发器）",
+      desc: "模式 A 非反转转发器，2m 上行 / 10m 下行，仅在日照时工作。"
+    },
+    "AO-73_[U/v]": {
+      aliases: "FUNcube-1（英国）",
+      type: "线性转发器",
+      uplink: "435.130–435.150 MHz（LSB）",
+      downlink: "145.950–145.970 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "FUNcube-1 教育卫星，反转线性转发器，阴影区仍可工作，1k2 BPSK 遥测 145.935 MHz。"
+    },
+    "FO-29_[V/u]": {
+      aliases: "JAS-2（富士 2 号）",
+      type: "线性转发器",
+      uplink: "145.900–146.000 MHz（LSB）",
+      downlink: "435.800–435.900 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "日本富士 2 号（JAS-2），反转线性转发器按计划激活，CW 信标 435.795 MHz。"
+    },
+    "JO-97_[U/v]": {
+      aliases: "JY1Sat（约旦）",
+      type: "线性转发器",
+      uplink: "435.100–435.120 MHz（LSB）",
+      downlink: "145.855–145.875 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "约旦 JY1Sat 卫星，反转线性转发器。"
+    },
+    "RS-44_[V/u]": {
+      aliases: "DOSAAF-85",
+      type: "线性转发器",
+      uplink: "145.935–145.995 MHz（LSB）",
+      downlink: "435.610–435.670 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "俄罗斯 RS-44（原 DOSAAF-85），反转线性转发器，广受欢迎，CW 信标 435.605 MHz。"
+    },
+    "TO-108_[U/v]": {
+      aliases: "CAS-6（中国）",
+      type: "线性转发器",
+      uplink: "435.270–435.290 MHz（LSB）",
+      downlink: "145.915–145.935 MHz（USB）",
+      tone: "无（SSB/CW 反转转发器）",
+      desc: "反转线性转发器，当前间歇性工作（约 2 秒开、5 秒关），CW 信标 145.910 MHz。"
+    },
+    "QO-100_[NB]": {
+      aliases: "Es'hail-2 / P4A（卡塔尔）",
+      type: "线性转发器（窄带）",
+      uplink: "2400.000–2400.500 MHz（USB）",
+      downlink: "10489.500–10490.000 MHz（USB）",
+      tone: "无",
+      desc: "地球静止轨道（东经 25.9°）业余卫星，覆盖欧亚非，窄带 SSB/CW 转发器。"
+    },
+    "QO-100_[WB]": {
+      aliases: "Es'hail-2 / P4A（卡塔尔）",
+      type: "宽带数字转发器（DATV）",
+      uplink: "2401.500–2409.500 MHz",
+      downlink: "10491.000–10499.000 MHz",
+      tone: "无",
+      desc: "QO-100 宽带数字转发器，用于 DATV 等高速数据，需 1.2m 以上抛物面天线。"
+    },
+    "CatSat_[C/x]": {
+      aliases: "CatSat（美国）",
+      type: "高频线性转发器",
+      uplink: "5.663 GHz（USB）",
+      downlink: "10.470 GHz（USB）",
+      tone: "无",
+      desc: "C/x 高频段转发器，需提交表单申请激活信标或转发器。"
+    },
+
+    /* ---- 数字中继 / APRS ---- */
+    "ISS_[VHF_Digi]": {
+      aliases: "国际空间站 APRS（RS0ISS / ARISS）",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "国际空间站 APRS 数字中继，别名 RS0ISS / NA1SS / ARISS。"
+    },
+    "CO-128_[VHF_Digi]": {
+      aliases: "MARMOTSat",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "145.875 MHz（1k2）",
+      tone: "无",
+      desc: "MARMOTSat 数字中继。"
+    },
+    "CroCube_[UHF_Digi]": {
+      aliases: "CroCube（克罗地亚，9A0CC）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "436.775 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "克罗地亚 CroCube 数字中继，呼号 9A0CC。"
+    },
+    "Foresail-1p_[UHF_Digi]": {
+      aliases: "Foresail-1p（芬兰）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "437.125 MHz（9k6）",
+      tone: "无",
+      desc: "芬兰 Foresail-1p 数字中继。"
+    },
+    "GRBBeta_[VHF_Digi]": {
+      aliases: "GRBBeta（匈牙利，HA2GRB）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "145.935 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "匈牙利 GRBBeta 数字中继，呼号 HA2GRB。"
+    },
+    "GRBBeta_[UHF_Digi]": {
+      aliases: "GRBBeta（匈牙利，HA2GRB）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "436.785 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "匈牙利 GRBBeta 数字中继（UHF）。"
+    },
+    "KNACKSAT-2_[VHF_Digi]": {
+      aliases: "KNACKSAT-2（泰国）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（9k6 APRS）",
+      tone: "无",
+      desc: "泰国 KNACKSAT-2 数字中继。"
+    },
+    "LASARsat_[UHF_Digi]": {
+      aliases: "LASARsat（OK0LSR）",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "436.925 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "LASARsat 数字中继，呼号 OK0LSR。"
+    },
+    "Marina_[VHF_Digi]": {
+      aliases: "Marina",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "145.925 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "Marina 数字中继（VHF）。"
+    },
+    "Marina_[UHF_Digi]": {
+      aliases: "Marina",
+      type: "数字中继",
+      uplink: "同下行频率",
+      downlink: "436.680 MHz（9k6 GFSK/G3RUH）",
+      tone: "无",
+      desc: "Marina 数字中继（UHF）。"
+    },
+    "NO-44_[VHF_Digi]": {
+      aliases: "PCSAT-1（W3ADO-1）",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "PCSAT-1（NO-44）APRS 数字中继，呼号 W3ADO-1。"
+    },
+    "SONATE-2_[VHF_Digi]": {
+      aliases: "SONATE-2（DP0SNX）",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "SONATE-2 APRS 数字中继，呼号 DP0SNX。"
+    },
+    "IO-86_[VHF_Digi]": {
+      aliases: "LAPAN-A2（YB0X）",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "145.825 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "LAPAN-A2 APRS 数字中继，呼号 YB0X。"
+    },
+
+    /* ---- 图像传输（SSTV / SSDV） ---- */
+    "ISS_[SSTV]": {
+      aliases: "国际空间站 SSTV",
+      type: "图像传输（SSTV）",
+      uplink: "—",
+      downlink: "145.800 MHz（SSTV PD120）",
+      tone: "无",
+      desc: "国际空间站定期开展 SSTV 图像下传活动，请关注 ARISS 活动公告。"
+    },
+    "HC1PX_[SSTV]": { aliases: "GALAPAGOS-UTE-SWSU（厄瓜多尔）", type: "图像传输（SSTV）", uplink: "—", downlink: "437.050 MHz（SSTV Robot36）", tone: "无", desc: "厄瓜多尔卫星，SSTV Robot36 图像下传。" },
+    "RS18S_[SSTV]": { aliases: "SakhaCube-Cholbon", type: "图像传输（SSTV）", uplink: "—", downlink: "437.350 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 SakhaCube-Cholbon，SSTV Robot36 图像下传。" },
+    "RS27S_[SSTV]": { aliases: "UTMN-2", type: "图像传输（SSTV）", uplink: "—", downlink: "436.125 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 UTMN-2，SSTV Robot36 图像下传。" },
+    "RS38S_[SSTV]": { aliases: "VIZARD-meteo", type: "图像传输（SSTV）", uplink: "—", downlink: "437.825 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 VIZARD-meteo，SSTV Robot36 图像下传。" },
+    "RS40S_[SSTV]": { aliases: "UmKA-1", type: "图像传输（SSTV）", uplink: "—", downlink: "437.625 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 UmKA-1，SSTV Robot36 图像下传。" },
+    "RS57S_[SSTV]": { aliases: "Monitor-4", type: "图像传输（SSTV）", uplink: "—", downlink: "436.080 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 Monitor-4，SSTV Robot36 图像下传。" },
+    "RS58S_[SSTV]": { aliases: "Monitor-3", type: "图像传输（SSTV）", uplink: "—", downlink: "435.290 MHz（SSTV Robot36）", tone: "无", desc: "俄罗斯 Monitor-3，SSTV Robot36 图像下传。" },
+    "RS83S_[SSTV]": { aliases: "Lobachevsky", type: "图像传输（SSTV）", uplink: "—", downlink: "436.320 MHz（SSTV & SSDV）", tone: "无", desc: "俄罗斯 Lobachevsky，SSTV/SSDV 图像下传。" },
+    "RS83S_[SSDV]": { aliases: "Lobachevsky", type: "图像传输（SSDV）", uplink: "—", downlink: "436.320 MHz（SSDV）", tone: "无", desc: "俄罗斯 Lobachevsky，SSDV 图像下传。" },
+    "RS95S_[SSTV]": { aliases: "QMR-KWT-2（科威特）", type: "图像传输（SSTV）", uplink: "—", downlink: "436.950 MHz（SSTV Robot36）", tone: "无", desc: "科威特 QMR-KWT-2，SSTV 图像下传。" },
+    "SONATE-2_[SSTV]": { aliases: "SONATE-2", type: "图像传输（SSTV）", uplink: "—", downlink: "145.880 MHz（SSTV Martin M1）", tone: "无", desc: "SONATE-2，SSTV Martin M1 图像下传。" },
+    "AO-123_[SSTV]": { aliases: "ASRTU-1", type: "图像传输（SSDV）", uplink: "—", downlink: "436.210 MHz（SSDV 9k6 BPSK）", tone: "无", desc: "ASRTU-1（AO-123），SSDV 图像下传。" },
+    "IO-86_[SSDV]": { aliases: "LAPAN-A2", type: "图像传输（SSDV）", uplink: "—", downlink: "145.880 MHz（SSDV 1k2 IL2P）", tone: "无", desc: "LAPAN-A2，SSDV 图像下传。" },
+    "Marina_[SSDV]": { aliases: "Marina", type: "图像传输（SSDV）", uplink: "—", downlink: "436.680 MHz（SSDV）", tone: "无", desc: "Marina，SSDV 图像下传。" },
+    "Luca_[SSDV]": { aliases: "Luca / RS90S", type: "图像传输（SSDV）", uplink: "—", downlink: "437.180 MHz（SSDV 2k4 GMSK）", tone: "无", desc: "Luca（RS90S），SSDV 图像下传。" },
+    "RS90S_[SSDV]": { aliases: "Luca", type: "图像传输（SSDV）", uplink: "—", downlink: "437.180 MHz（SSDV 2k4 GMSK）", tone: "无", desc: "Luca（RS90S），SSDV 图像下传。" },
+    "RS59S_[SSDV]": { aliases: "Horizon", type: "图像传输（SSDV）", uplink: "—", downlink: "435.431 MHz（SSDV 9k6 GFSK）", tone: "无", desc: "俄罗斯 Horizon，SSDV 图像下传。" },
+    "RS61S_[SSDV]": { aliases: "239Alferov", type: "图像传输（SSDV）", uplink: "—", downlink: "436.270 MHz（SSDV 9k6 GFSK）", tone: "无", desc: "俄罗斯 239Alferov，SSDV 图像下传。" },
+    "RS66S_[SSDV]": { aliases: "HyperView-1G", type: "图像传输（SSDV）", uplink: "—", downlink: "436.540 MHz（SSDV 2k4 GMSK）", tone: "无", desc: "俄罗斯 HyperView-1G，SSDV 图像下传。" },
+    "RS92S2_[SSDV]": { aliases: "Geoscan-2", type: "图像传输（SSDV）", uplink: "—", downlink: "436.160 MHz（SSDV 9k6 GFSK）", tone: "无", desc: "俄罗斯 Geoscan-2，SSDV 图像下传。" },
+    "RS92S4_[SSDV]": { aliases: "Geoscan-4", type: "图像传输（SSDV）", uplink: "—", downlink: "435.335 MHz（SSDV 9k6 GFSK）", tone: "无", desc: "俄罗斯 Geoscan-4，SSDV 图像下传。" },
+    "SO-127_[SSDV]": { aliases: "HADES-SA", type: "图像传输（SSDV）", uplink: "—", downlink: "436.875 MHz（SSDV）", tone: "无", desc: "HADES-SA（SO-127），SSDV 图像下传。" },
+
+    /* ---- 音乐信标 ---- */
+    "BALKAN-1_[Music]": { aliases: "BALKAN-1", type: "音乐信标", uplink: "—", downlink: "401.360 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "EMISAR_[Music]": { aliases: "EMISAR", type: "音乐信标", uplink: "—", downlink: "401.334 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "Flamingo-1_[Music]": { aliases: "Flamingo-1", type: "音乐信标", uplink: "—", downlink: "401.050 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "OPTISAT_[Music]": { aliases: "OPTISAT", type: "音乐信标", uplink: "—", downlink: "400.3575 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "OTP-2_[Music]": { aliases: "OTP-2", type: "音乐信标", uplink: "—", downlink: "400.500 MHz", tone: "无", desc: "业余卫星，下行播放《坎巴拉太空计划》主题曲。" },
+    "Out_of_the_Box_[Music]": { aliases: "Out of the Box", type: "音乐信标", uplink: "—", downlink: "402.360 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+    "Replicator-2_[Music]": { aliases: "Replicator-2", type: "音乐信标", uplink: "—", downlink: "400.500 MHz", tone: "无", desc: "业余卫星，每 3 分钟下行播放一段《Crazy Frog》简化信标。" },
+    "RS40S_[Music]": { aliases: "UmKA-1", type: "音乐信标", uplink: "—", downlink: "437.625 MHz", tone: "无", desc: "俄罗斯 UmKA-1，下行播放动画《Umka》中《北极熊摇篮曲》。" },
+    "T.Microsat-1_[Music]": { aliases: "T.Microsat-1", type: "音乐信标", uplink: "—", downlink: "401.025 MHz", tone: "无", desc: "业余卫星，下行播放《欢乐颂》音乐信标。" },
+
+    /* ---- 其他 / 遥测 ---- */
+    "ISS_[Crew]": {
+      aliases: "国际空间站机组语音",
+      type: "机组语音",
+      uplink: "144.490 MHz（区域 2/3）",
+      downlink: "145.800 MHz",
+      tone: "无",
+      desc: "国际空间站宇航员业余无线电语音通联（ARISS）。上行区域 1 使用 145.200 MHz。"
+    },
+
+    /* ---- 遥测 / 数字 / 即将发射 ---- */
+    "CAS-2T_[TLM]": {
+      aliases: "CAS-2T（中国学生 CubeSat）",
+      type: "遥测 / FM 转发器",
+      uplink: "145.925 MHz",
+      downlink: "435.710 MHz（CW 遥测）/ 435.615 MHz（FM 转发器）",
+      tone: "无",
+      desc: "中国学生 CubeSat（2016 年发射），带 FM 转发器与 CW 遥测信标。"
+    },
+    "FO-126_[UHF_TLM]": {
+      aliases: "FO-126 / OrigamiSat-2（日本）",
+      type: "遥测（UHF）",
+      uplink: "—",
+      downlink: "437.505 MHz（AFSK 1k2 / CW 遥测）",
+      tone: "无",
+      desc: "日本 OrigamiSat-2（FO-126，2026 年发射），UHF 遥测信标。"
+    },
+    "FO-126_[5.8G_TLM]": {
+      aliases: "FO-126 / OrigamiSat-2（日本）",
+      type: "遥测（5.8G 高速数据）",
+      uplink: "—",
+      downlink: "5.840 GHz（C 波段高速数据）",
+      tone: "无",
+      desc: "OrigamiSat-2 的 C 波段高速数据下行。"
+    },
+    "INCA-2_[V/u_Digi]": {
+      aliases: "INCA-2",
+      type: "数字中继",
+      uplink: "145.900 MHz",
+      downlink: "437.125 MHz（GMSK 9k6）",
+      tone: "无",
+      desc: "INCA-2 数字中继（GMSK 9k6）。"
+    },
+    "ISS_[UHF_Digi]": {
+      aliases: "国际空间站 UHF APRS",
+      type: "数字中继（APRS）",
+      uplink: "同下行频率",
+      downlink: "437.550 MHz（1k2 APRS）",
+      tone: "无",
+      desc: "国际空间站 UHF APRS 数字中继。"
+    },
+    "ISS_[DATV]": {
+      aliases: "国际空间站 HamTV",
+      type: "数字视频（DATV）",
+      uplink: "—",
+      downlink: "2395.0 MHz（DVB-S2 HamTV）",
+      tone: "无",
+      desc: "国际空间站 HamTV 数字业余电视下行。"
+    },
+    "LO-19_[TLM]": {
+      aliases: "LUSAT-1（阿根廷）",
+      type: "遥测",
+      uplink: "—",
+      downlink: "437.125 MHz（CW 遥测）",
+      tone: "无",
+      desc: "阿根廷 LUSAT-1（LO-19，1990 年发射），CW 遥测信标。"
+    },
+    "UO-11_[TLM]": {
+      aliases: "UoSAT-2（英国）",
+      type: "遥测",
+      uplink: "—",
+      downlink: "145.825 MHz / 435.025 MHz（遥测信标）",
+      tone: "无",
+      desc: "英国 UoSAT-2（UO-11，1984 年发射），遥测信标。"
+    },
+    "CO-128_[DVB-S2]": {
+      aliases: "CO-128 / MARMOTSat（加拿大）",
+      type: "高速数据（DVB-S2）",
+      uplink: "—",
+      downlink: "X 波段 DVB-S2（详见 propagationlab.ca）",
+      tone: "无",
+      desc: "加拿大 MARMOTSat 的高速数据下行，详见 Propagation Lab 官网。"
+    },
+    "CO-128_[TLM]": {
+      aliases: "CO-128 / MARMOTSat（加拿大）",
+      type: "遥测",
+      uplink: "—",
+      downlink: "—（详见 AMSAT / SatNOGS）",
+      tone: "无",
+      desc: "加拿大 MARMOTSat 遥测，详见 AMSAT 状态页与 SatNOGS。"
+    },
+    "RS83S_[FM]": {
+      aliases: "Lobachevsky（俄罗斯）",
+      type: "FM 语音中继",
+      uplink: "—",
+      downlink: "—（FM 参数待 AMSAT 更新）",
+      tone: "—",
+      desc: "俄罗斯 Lobachevsky（RS83S），目前主要下传 SSTV/SSDV（436.320 MHz），FM 转发器参数待公布。"
+    },
+    "SO-127_[CODEC2]": {
+      aliases: "HADES-SA（西班牙）",
+      type: "数字语音（CODEC2）",
+      uplink: "—",
+      downlink: "436.875 MHz（SSDV/数据）",
+      tone: "无",
+      desc: "西班牙 HADES-SA（SO-127）数字模式。"
+    },
+    "SO-127_[FSK]": {
+      aliases: "HADES-SA（西班牙）",
+      type: "数字（FSK）",
+      uplink: "—",
+      downlink: "436.875 MHz（数据）",
+      tone: "无",
+      desc: "西班牙 HADES-SA（SO-127）FSK 数据模式。"
+    },
+    "Ten-Koh2_[V/u]": {
+      aliases: "Ten-Koh2（日本）",
+      type: "线性转发器（即将发射）",
+      uplink: "—",
+      downlink: "—",
+      tone: "无",
+      desc: "日本 Ten-Koh2，V/u 线性转发器，尚未投入运营。"
+    },
+    "LILIUM-4_[VHF_Digi]": {
+      aliases: "LILIUM-4",
+      type: "数字中继（即将发射）",
+      uplink: "—",
+      downlink: "—",
+      tone: "无",
+      desc: "LILIUM-4 数字中继，尚未投入运营。"
+    },
+    "PARUS-6U1_[VHF_Digi]": {
+      aliases: "PARUS-6U1",
+      type: "数字中继（即将发射）",
+      uplink: "—",
+      downlink: "—",
+      tone: "无",
+      desc: "PARUS-6U1 数字中继，尚未投入运营。"
+    }
+  };
+
+  var TEVEL_ALIASES = "Tevel-2 星座（以色列）";
+  var TEVEL_DESC = "以色列 Tevel-2 九颗卫星组成的 FM 转发器星座，覆盖范围广。";
+  for (var ti = 1; ti <= 9; ti++) {
+    SAT_DETAILS["TEVEL2-" + ti + "_[FM]"] = {
+      aliases: TEVEL_ALIASES, type: "FM 语音中继",
+      uplink: "145.970 MHz", downlink: "436.400 MHz", tone: "无（FM 转发器）", desc: TEVEL_DESC
+    };
+  }
+
+
 (function () {
   "use strict";
   var STATUS = {
-    "Heard": { cls: "a", label: "活跃" },
-    "Crew Active": { cls: "a", label: "船员" },
-    "Telemetry Only": { cls: "t", label: "遥测" },
-    "Not Heard": { cls: "n", label: "未收" }
+    "Heard": { k: "a", label: "活跃" },
+    "Crew Active": { k: "a", label: "船员" },
+    "Telemetry Only": { k: "t", label: "遥测" },
+    "Not Heard": { k: "n", label: "未收" }
   };
+  var ORDER = { a: 0, t: 1, n: 2 };
+  var CIRC = 2 * Math.PI * 40;
+  var rows = [];
+  var curMode = "";
 
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function rel(iso) {
@@ -70,8 +597,30 @@
     if (d < 86400) return Math.floor(d / 3600) + "时";
     return Math.floor(d / 86400) + "天";
   }
+  function modeOf(name) { var m = String(name).match(/\[([^\]]+)\]/); return m ? m[1] : "—"; }
+
+  function show(id) {
+    var ps = document.querySelectorAll(".page");
+    for (var i = 0; i < ps.length; i++) ps[i].classList.add("hide");
+    document.getElementById(id).classList.remove("hide");
+  }
+
+  function setRing(id, pct) {
+    var el = document.getElementById(id);
+    var p = pct > 100 ? 100 : pct;
+    el.setAttribute("stroke-dasharray", (p * CIRC / 100).toFixed(1) + " " + CIRC.toFixed(1));
+  }
+
+  function tick() {
+    var d = new Date();
+    document.getElementById("utcTime").textContent = d.toISOString().slice(11, 19);
+    document.getElementById("updTime").textContent = d.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
+  }
 
   async function load() {
+    var up = document.getElementById("updStatus");
+    up.textContent = "● 加载中…";
+    up.className = "";
     try {
       var res = await Promise.all([
         fetch("https://www.amsat.org/status/api/v1/catalog.php", { cache: "no-store" }).then(function (r) { return r.json(); }),
@@ -79,39 +628,116 @@
       ]);
       var by = {};
       (res[1].data || []).forEach(function (e) { (by[e.name] = by[e.name] || []).push(e); });
-      var rows = (res[0].data || []).map(function (cat) {
+      rows = (res[0].data || []).map(function (cat) {
         var es = by[cat.name] || [];
         var latest = null, t0 = null;
         es.forEach(function (e) {
           if (!t0 || (e.latest_reported_time && e.latest_reported_time > t0)) { t0 = e.latest_reported_time; latest = e; }
         });
-        return { name: cat.display_name || cat.name, st: latest ? latest.report : null, t: t0 };
+        var st = latest ? latest.report : null;
+        var m = st ? STATUS[st] : null;
+        return { name: cat.name, disp: cat.display_name || cat.name, mode: modeOf(cat.display_name), k: m ? m.k : "x", st: st, t: t0 };
       });
-      var order = { a: 0, t: 1, n: 2, x: 3 };
-      rows.sort(function (a, b) {
-        var ka = order[a.st === "Heard" || a.st === "Crew Active" ? "a" : a.st === "Telemetry Only" ? "t" : a.st === "Not Heard" ? "n" : "x"];
-        var kb = order[b.st === "Heard" || b.st === "Crew Active" ? "a" : b.st === "Telemetry Only" ? "t" : b.st === "Not Heard" ? "n" : "x"];
-        if (ka !== kb) return ka - kb;
-        return (b.t || "").localeCompare(a.t || "");
-      });
-      var active = rows.filter(function (r) { return r.st === "Heard" || r.st === "Crew Active"; }).length;
-      document.getElementById("sum").innerHTML = "<b>" + active + "</b> 活跃 / " + rows.length + " 颗";
-      var html = "";
-      rows.slice(0, 14).forEach(function (r) {
-        var m = r.st ? STATUS[r.st] : null;
-        html += '<div class="row"><span class="dot ' + (m ? m.cls : "x") + '"></span>' +
-          '<span class="nm">' + esc(r.name) + "</span>" +
-          '<span class="st ' + (m ? m.cls : "x") + '">' + (m ? m.label : "无报告") + "</span>" +
-          '<span class="tm">' + rel(r.t) + "</span>" +
-        "</div>";
-      });
-      document.getElementById("list").innerHTML = html;
-      document.getElementById("upd").textContent = "更新于 " + new Date().toLocaleTimeString("zh-CN", { hour12: false });
+      renderStats();
+      renderModes();
+      up.textContent = "● 已更新";
+      up.className = "ok";
     } catch (e) {
-      document.getElementById("list").innerHTML = '<div class="err">加载失败<br>请检查网络</div>';
+      up.textContent = "● 更新失败";
+      up.className = "err";
+      document.getElementById("modes").innerHTML = '<div class="empty">加载失败<br>下拉重试</div>';
     }
   }
 
+  function renderStats() {
+    var total = rows.length, a = 0, t = 0, n = 0;
+    rows.forEach(function (r) {
+      if (r.k === "a") a++; else if (r.k === "t") t++; else if (r.k === "n") n++;
+    });
+    document.getElementById("cntTotal").textContent = total;
+    document.getElementById("cntActive").textContent = a;
+    document.getElementById("cntTlm").textContent = t;
+    document.getElementById("cntNot").textContent = n;
+    setRing("rvTotal", 100);
+    setRing("rvActive", total ? a * 100 / total : 0);
+    setRing("rvTlm", total ? t * 100 / total : 0);
+    setRing("rvNot", total ? n * 100 / total : 0);
+  }
+
+  function renderModes() {
+    var map = {};
+    rows.forEach(function (r) {
+      if (r.k === "x") return;
+      (map[r.mode] = map[r.mode] || []).push(r);
+    });
+    var modes = Object.keys(map).sort(function (x, y) { return map[y].length - map[x].length || x.localeCompare(y); });
+    var html = "";
+    modes.forEach(function (md) {
+      html += '<div class="mode-chip" data-mode="' + esc(md) + '"><span>' + esc(md) + "</span><span class=\"cnt\">" + map[md].length + " 颗</span></div>";
+    });
+    document.getElementById("modes").innerHTML = html || '<div class="empty">暂无数据</div>';
+  }
+
+  function renderModeList() {
+    document.getElementById("modeTitle").textContent = curMode;
+    var list = rows.filter(function (r) { return r.mode === curMode && ORDER[r.k] !== undefined; });
+    list.sort(function (a, b) {
+      var d = ORDER[a.k] - ORDER[b.k];
+      if (d) return d;
+      return (b.t || "").localeCompare(a.t || "");
+    });
+    if (!list.length) { document.getElementById("modeList").innerHTML = '<div class="empty">该模式暂无活跃卫星</div>'; return; }
+    var html = "";
+    list.forEach(function (r) {
+      var m = STATUS[r.st];
+      html += '<div class="row" data-name="' + esc(r.name) + '">' +
+        '<span class="dot ' + r.k + '"></span>' +
+        '<span class="nm">' + esc(r.disp) + "</span>" +
+        '<span class="st ' + r.k + '">' + (m ? m.label : "未收") + "</span>" +
+        '<span class="tm">' + rel(r.t) + "</span>" +
+      "</div>";
+    });
+    document.getElementById("modeList").innerHTML = html;
+  }
+
+  function openDetail(name) {
+    var r = null;
+    for (var i = 0; i < rows.length; i++) if (rows[i].name === name) { r = rows[i]; break; }
+    var d = SAT_DETAILS[name];
+    document.getElementById("detName").textContent = r ? r.disp : name;
+    if (!d) {
+      document.getElementById("detBody").innerHTML = '<div class="empty">暂无详细资料<br>可在手机上查看</div>';
+      show("pd");
+      return;
+    }
+    function f(k, v) { return '<div class="f"><span class="k">' + k + '</span><span class="v">' + esc(v || "—") + "</span></div>"; }
+    var html = f("别名", d.aliases) + f("类型", d.type) + f("上行频率", d.uplink) + f("下行频率", d.downlink) + f("亚音", d.tone);
+    if (d.desc) html += '<div class="d">' + esc(d.desc) + "</div>";
+    document.getElementById("detBody").innerHTML = html;
+    show("pd");
+  }
+
+  /* 事件 */
+  document.getElementById("p1").addEventListener("click", function () { show("p2"); });
+  document.getElementById("modes").addEventListener("click", function (ev) {
+    var c = ev.target.closest(".mode-chip");
+    if (!c) return;
+    curMode = c.getAttribute("data-mode");
+    renderModeList();
+    show("p3");
+  });
+  document.getElementById("modeList").addEventListener("click", function (ev) {
+    var r = ev.target.closest(".row");
+    if (!r) return;
+    openDetail(r.getAttribute("data-name"));
+  });
+  var backs = document.querySelectorAll(".back");
+  for (var i = 0; i < backs.length; i++) {
+    backs[i].addEventListener("click", function () { show(this.getAttribute("data-go")); });
+  }
+
+  tick();
+  setInterval(tick, 1000);
   load();
   setInterval(load, 120000);
 })();
